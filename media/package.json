@@ -4,7 +4,7 @@
     "length-prefixed-stream": "^1.6.0",
     "mediasoup": "^3.13.13",
     "minimist": "^1.2.8",
-    "p-queue": "^8.0.1",
+    "p-queue": "^9.1.0",
     "tsx": "^4.7.0"
   },
   "devDependencies": {
