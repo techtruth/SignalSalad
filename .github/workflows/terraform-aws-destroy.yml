@@ -1,0 +1,69 @@
+name: Terraform AWS Destroy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-aws-destroy
+  cancel-in-progress: false
+
+jobs:
+  destroy-aws:
+    name: Destroy AWS Terraform
+    runs-on: ubuntu-latest
+    env:
+      TF_IN_AUTOMATION: "true"
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_STATE_S3_BUCKET: mediasalad-demo
+      TF_STATE_AWS_REGION: us-east-1
+      TF_STATE_DYNAMODB_TABLE: mediasalad
+    defaults:
+      run:
+        shell: bash
+        working-directory: infrastructure/aws
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Verify AWS secrets
+        run: |
+          test -n "${AWS_ACCESS_KEY_ID}" || { echo "Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${AWS_SECRET_ACCESS_KEY}" || { echo "Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+
+      - name: Verify S3 backend settings
+        run: |
+          test -n "${TF_STATE_S3_BUCKET}" || { echo "Missing env: TF_STATE_S3_BUCKET"; exit 1; }
+          test -n "${TF_STATE_AWS_REGION}" || { echo "Missing env: TF_STATE_AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_DYNAMODB_TABLE}" || { echo "Missing env: TF_STATE_DYNAMODB_TABLE"; exit 1; }
+
+      - name: Terraform Init (S3 backend)
+        run: |
+          cat > backend.ci.tf <<'EOF'
+          terraform {
+            backend "s3" {}
+          }
+          EOF
+
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${TF_STATE_S3_BUCKET}" \
+            -backend-config="key=signalsalad/aws/terraform.tfstate" \
+            -backend-config="region=${TF_STATE_AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${TF_STATE_DYNAMODB_TABLE}" \
+            -backend-config="access_key=${AWS_ACCESS_KEY_ID}" \
+            -backend-config="secret_key=${AWS_SECRET_ACCESS_KEY}"
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Destroy
+        run: terraform destroy -input=false -lock-timeout=5m -auto-approve

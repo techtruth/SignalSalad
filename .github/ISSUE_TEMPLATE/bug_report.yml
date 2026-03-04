@@ -1,0 +1,28 @@
+name: Bug report
+description: Report a reproducible problem
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Steps, environment, and relevant room/peer actions
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Include relevant `systemStatus` diagnostics entries
+  - type: textarea
+    id: impact
+    attributes:
+      label: User Impact
+      description: How users were affected (join/send/receive)
