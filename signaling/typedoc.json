@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "SignalSalad Signaling",
+  "entryPoints": ["server.ts", "lib/**/*.ts"],
+  "plugin": ["typedoc-plugin-mermaid"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "tsconfig.json",
+  "sourceLinkTemplate": "https://github.com/techtruth/signalsalad/blob/main/{path}#L{line}",
+  "disableGit": true,
+  "out": "../docs/generated/signaling",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "readme": "none",
+  "navigationLinks": {
+    "Docs Home": "https://github.com/techtruth/signalsalad/blob/main/docs/README.md",
+    "Architecture": "https://github.com/techtruth/signalsalad/blob/main/docs/architecture/README.md",
+    "Harness": "/docs/harness",
+    "Demo UI": "/docs/demo-ui",
+    "Signaling": "/docs/signaling",
+    "Media Server": "/docs/mediaserver"
+  }
+}
