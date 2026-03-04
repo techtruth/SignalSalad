@@ -25,61 +25,18 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-resource "aws_vpc" "this" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+resource "aws_default_vpc" "this" {}
 
-  tags = {
-    Name = "${var.stack_name}-${var.region_label}-vpc"
-  }
-}
-
-resource "aws_subnet" "this" {
+resource "aws_default_subnet" "primary" {
   count = local.primary_az == null ? 0 : 1
 
-  vpc_id                  = aws_vpc.this.id
-  availability_zone       = local.primary_az
-  cidr_block              = cidrsubnet(var.vpc_cidr, var.subnet_newbits, 0)
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.stack_name}-${var.region_label}-${local.primary_az}-subnet"
-  }
-}
-
-resource "aws_internet_gateway" "this" {
-  vpc_id = aws_vpc.this.id
-
-  tags = {
-    Name = "${var.stack_name}-${var.region_label}-igw"
-  }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.this.id
-  }
-
-  tags = {
-    Name = "${var.stack_name}-${var.region_label}-public-rt"
-  }
-}
-
-resource "aws_route_table_association" "public" {
-  count = local.primary_az == null ? 0 : 1
-
-  subnet_id      = aws_subnet.this[0].id
-  route_table_id = aws_route_table.public.id
+  availability_zone = local.primary_az
 }
 
 resource "aws_security_group" "this" {
   name        = "${var.stack_name}-${var.region_label}-sg"
   description = "Ingress for web/signaling/media ports"
-  vpc_id      = aws_vpc.this.id
+  vpc_id      = aws_default_vpc.this.id
 
   tags = {
     Name = "${var.stack_name}-${var.region_label}-sg"
@@ -156,7 +113,7 @@ resource "aws_instance" "media" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = var.media_instance_type
   availability_zone           = local.primary_az
-  subnet_id                   = aws_subnet.this[0].id
+  subnet_id                   = aws_default_subnet.primary[0].id
   vpc_security_group_ids      = [aws_security_group.this.id]
   key_name                    = var.ssh_key_name
   associate_public_ip_address = true
@@ -172,7 +129,7 @@ resource "aws_instance" "signaling" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = var.signaling_instance_type
   availability_zone           = local.primary_az
-  subnet_id                   = aws_subnet.this[0].id
+  subnet_id                   = aws_default_subnet.primary[0].id
   vpc_security_group_ids      = [aws_security_group.this.id]
   key_name                    = var.ssh_key_name
   associate_public_ip_address = true

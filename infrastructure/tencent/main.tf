@@ -21,7 +21,6 @@ module "guangzhou" {
 
   stack_name              = var.stack_name
   region_label            = "guangzhou"
-  vpc_cidr                = var.region_vpc_cidrs["guangzhou"]
   ssh_key_id              = tencentcloud_key_pair.shared.id
   ubuntu_image_name_regex = var.ubuntu_image_name_regex
   allowed_ssh_cidr        = var.allowed_ssh_cidr
@@ -40,7 +39,6 @@ module "siliconvalley" {
 
   stack_name              = var.stack_name
   region_label            = "siliconvalley"
-  vpc_cidr                = var.region_vpc_cidrs["siliconvalley"]
   ssh_key_id              = tencentcloud_key_pair.shared.id
   ubuntu_image_name_regex = var.ubuntu_image_name_regex
   allowed_ssh_cidr        = var.allowed_ssh_cidr
@@ -59,7 +57,6 @@ module "ashburn" {
 
   stack_name              = var.stack_name
   region_label            = "ashburn"
-  vpc_cidr                = var.region_vpc_cidrs["virginia"]
   ssh_key_id              = tencentcloud_key_pair.shared.id
   ubuntu_image_name_regex = var.ubuntu_image_name_regex
   allowed_ssh_cidr        = var.allowed_ssh_cidr
@@ -78,7 +75,6 @@ module "shanghai" {
 
   stack_name              = var.stack_name
   region_label            = "shanghai"
-  vpc_cidr                = var.region_vpc_cidrs["shanghai"]
   ssh_key_id              = tencentcloud_key_pair.shared.id
   ubuntu_image_name_regex = var.ubuntu_image_name_regex
   allowed_ssh_cidr        = var.allowed_ssh_cidr

@@ -6,7 +6,7 @@ This is the AWS Terraform entrypoint for SignalSalad infrastructure.
 
 - Signaling node in Ohio (`us-east-2`)
 - Media nodes in North California (`us-west-1`) and North Virginia (`us-east-1`)
-- Per-region VPC/subnet/route/security-group setup
+- Per-region default VPC/default subnet usage with dedicated security groups
 - Shared SSH keypair registration
 - ECR repositories for `webapp`, `signaling`, and `media`
 
@@ -35,6 +35,7 @@ terraform destroy
 - Deployment helper scripts are available under `infrastructure/aws/scripts/`.
 - ECR repositories are created with `force_delete` enabled by default so `terraform destroy` can remove them even if images still exist (`ecr_force_delete = true`).
 - Media nodes are pinned to `t3.small` (`media_instance_type`) to keep them on 2 vCPU with minimal RAM.
+- CIDRs are not configured in this project. Networking uses each region's AWS default VPC and default subnet.
 
 ## Compose Deployment Helpers
 

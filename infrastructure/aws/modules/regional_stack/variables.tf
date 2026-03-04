@@ -8,11 +8,6 @@ variable "region_label" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the region VPC"
-  type        = string
-}
-
 variable "ssh_key_name" {
   description = "AWS key pair name to attach to instances"
   type        = string
@@ -56,10 +51,4 @@ variable "ubuntu_ami_name_pattern" {
 variable "ubuntu_ami_owners" {
   description = "AMI owner ids used for AMI selection"
   type        = list(string)
-}
-
-variable "subnet_newbits" {
-  description = "Additional bits used to carve subnets from VPC CIDR"
-  type        = number
-  default     = 8
 }

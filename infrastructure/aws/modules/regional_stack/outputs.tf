@@ -1,9 +1,9 @@
 output "vpc_id" {
-  value = aws_vpc.this.id
+  value = aws_default_vpc.this.id
 }
 
 output "subnet_ids" {
-  value = [for subnet in aws_subnet.this : subnet.id]
+  value = [for subnet in aws_default_subnet.primary : subnet.id]
 }
 
 output "media_instance_ids" {

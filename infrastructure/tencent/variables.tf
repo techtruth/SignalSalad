@@ -37,24 +37,6 @@ variable "signaling_region" {
   }
 }
 
-variable "region_vpc_cidrs" {
-  description = "VPC CIDR per region key"
-  type        = map(string)
-  default = {
-    guangzhou     = "10.0.0.0/16"
-    siliconvalley = "10.1.0.0/16"
-    virginia      = "10.2.0.0/16"
-    shanghai      = "10.3.0.0/16"
-  }
-
-  validation {
-    condition = alltrue([
-      for r in toset(concat(var.media_regions, [var.signaling_region])) : contains(keys(var.region_vpc_cidrs), r)
-    ])
-    error_message = "region_vpc_cidrs must include guangzhou, shanghai, virginia, and siliconvalley."
-  }
-}
-
 variable "ubuntu_image_name_regex" {
   description = "Regex used to pick a public Ubuntu image in each region"
   type        = string

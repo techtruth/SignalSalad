@@ -36,23 +36,6 @@ variable "signaling_region" {
   }
 }
 
-variable "region_vpc_cidrs" {
-  description = "VPC CIDR per region key"
-  type        = map(string)
-  default = {
-    north_california = "10.10.0.0/16"
-    ohio             = "10.11.0.0/16"
-    north_virginia   = "10.12.0.0/16"
-  }
-
-  validation {
-    condition = alltrue([
-      for r in toset(concat(var.media_regions, [var.signaling_region])) : contains(keys(var.region_vpc_cidrs), r)
-    ])
-    error_message = "region_vpc_cidrs must include north_california, north_virginia, and ohio."
-  }
-}
-
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed to SSH"
   type        = string

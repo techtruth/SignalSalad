@@ -51,8 +51,7 @@ locals {
 }
 
 resource "tencentcloud_vpc" "this" {
-  name       = "${var.stack_name}-${var.region_label}-vpc"
-  cidr_block = var.vpc_cidr
+  name = "${var.stack_name}-${var.region_label}-vpc"
 }
 
 resource "tencentcloud_subnet" "this" {
@@ -60,7 +59,7 @@ resource "tencentcloud_subnet" "this" {
 
   name              = "${var.stack_name}-${var.region_label}-${local.primary_zone}-subnet"
   vpc_id            = tencentcloud_vpc.this.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, var.subnet_newbits, 0)
+  cidr_block        = cidrsubnet(tencentcloud_vpc.this.cidr_block, var.subnet_newbits, 0)
   availability_zone = local.primary_zone
 }
 

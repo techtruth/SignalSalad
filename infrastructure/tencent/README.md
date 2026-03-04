@@ -38,3 +38,4 @@ terraform destroy
   - `scripts/dirty_deploy.sh "<docker-login-command>"`
   - `scripts/dirty_run.sh`
   - `scripts/dirty_shell.sh`
+- CIDRs are not configured in this project. The VPC CIDR is provider-assigned and subnet CIDR is derived from that VPC.

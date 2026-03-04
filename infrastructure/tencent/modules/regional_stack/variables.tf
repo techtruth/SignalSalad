@@ -8,11 +8,6 @@ variable "region_label" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the region VPC"
-  type        = string
-}
-
 variable "ssh_key_id" {
   description = "Tencent key pair id to attach to instances"
   type        = string

@@ -34,7 +34,6 @@ module "ohio" {
 
   stack_name              = var.stack_name
   region_label            = "ohio"
-  vpc_cidr                = var.region_vpc_cidrs["ohio"]
   ssh_key_name            = aws_key_pair.ohio.key_name
   allowed_ssh_cidr        = var.allowed_ssh_cidr
   media_udp_port_range    = var.media_udp_port_range
@@ -56,7 +55,6 @@ module "north_california" {
 
   stack_name              = var.stack_name
   region_label            = "north-california"
-  vpc_cidr                = var.region_vpc_cidrs["north_california"]
   ssh_key_name            = aws_key_pair.north_california.key_name
   allowed_ssh_cidr        = var.allowed_ssh_cidr
   media_udp_port_range    = var.media_udp_port_range
@@ -78,7 +76,6 @@ module "north_virginia" {
 
   stack_name              = var.stack_name
   region_label            = "north-virginia"
-  vpc_cidr                = var.region_vpc_cidrs["north_virginia"]
   ssh_key_name            = aws_key_pair.north_virginia.key_name
   allowed_ssh_cidr        = var.allowed_ssh_cidr
   media_udp_port_range    = var.media_udp_port_range
