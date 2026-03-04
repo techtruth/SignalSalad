@@ -1,0 +1,57 @@
+# Node and build artifacts
+**/node_modules
+webapp/dist
+**/*.tsbuildinfo
+
+# Generated docs
+docs/generated/
+
+# Terraform and infrastructure local artifacts
+infrastructure/.terraform
+infrastructure/.terraform/**
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.*
+infrastructure/**/.terraform
+infrastructure/**/.terraform/**
+infrastructure/**/.terraform.lock.hcl
+infrastructure/**/terraform.tfstate
+infrastructure/**/terraform.tfstate.*
+infrastructure/**/terraform.tfstate.backup
+infrastructure/**/crash.log
+infrastructure/**/crash.*.log
+infrastructure/**/*.tfvars
+infrastructure/**/*.tfvars.json
+infrastructure/**/override.tf
+infrastructure/**/override.tf.json
+infrastructure/**/*_override.tf
+infrastructure/**/*_override.tf.json
+infrastructure/.terraform_ssh_key
+infrastructure/.terraform_tencent_ssh_key
+infrastructure/.terraform_aws_ssh_key
+infrastructure/aws/.terraform_aws_ssh_key
+infrastructure/tencent/.terraform_tencent_ssh_key
+infrastructure/servers.screen
+infrastructure/tencent/servers.screen
+infrastructure/.tencent.env
+infrastructure/.aws.env
+infrastructure/aws/.aws.env
+infrastructure/tencent/.tencent.env
+infrastructure/screen-logs
+infrastructure/**/servers.shell.screen
+infrastructure/providers/**/.terraform
+infrastructure/providers/**/.terraform/**
+infrastructure/providers/**/.terraform.lock.hcl
+infrastructure/providers/**/terraform.tfstate
+infrastructure/providers/**/terraform.tfstate.*
+infrastructure/providers/**/.terraform_ssh_key
+infrastructure/providers/**/.terraform_tencent_ssh_key
+infrastructure/providers/**/.terraform_aws_ssh_key
+infrastructure/providers/**/.aws.env
+infrastructure/providers/**/servers.screen
+infrastructure/providers/**/.tencent.env
+infrastructure/providers/**/screen-logs
+
+# Local noise
+**/*.log
+**/.DS_Store
