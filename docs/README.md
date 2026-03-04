@@ -1,6 +1,7 @@
 # SignalSalad
 
-SignalSalad is a realtime WebRTC reference stack with a signaling control plane and mediasoup-based ingress/egress media services.
+Provides signaling control plane for mediasoup, scalable ingress/egress media services, plus Terraform + GitHub Actions deployment workflows for popular cloud providers.
+
 
 It is designed to be readable, testable, and operable for multi-peer rooms, with explicit diagnostics for join, transport, and media fanout failures.
 
