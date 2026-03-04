@@ -1,0 +1,17 @@
+FROM node:lts
+
+ENV signalinghost=localhost
+ENV signalingport=1188
+ENV region=local
+
+RUN apt-get update && \
+    apt-get install -y python3-pip && \
+    apt-get clean
+
+WORKDIR /container/app
+RUN chown -R node:node /container
+
+USER node
+COPY --chown=node:node ./media /container/app
+COPY --chown=node:node ./types /container/types
+RUN npm ci

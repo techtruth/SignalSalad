@@ -1,0 +1,12 @@
+FROM node:lts
+
+RUN apt-get update && \
+    apt-get clean
+
+WORKDIR /container/app
+RUN chown -R node:node /container
+
+USER node
+COPY --chown=node:node ./signaling /container/app
+COPY --chown=node:node ./types /container/types
+RUN npm ci
