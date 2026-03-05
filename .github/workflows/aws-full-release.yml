@@ -17,6 +17,9 @@ concurrency:
 jobs:
   terraform:
     name: Provision AWS Infrastructure
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/terraform-aws-deploy.yml
     secrets: inherit
 
