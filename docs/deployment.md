@@ -76,10 +76,10 @@ Required GitHub secrets for AWS Docker publish:
 
 Workflow files:
 
-- `.github/workflows/terraform-aws-deploy.yml`
-- `.github/workflows/aws-webapp-cdn-deploy.yml`
-- `.github/workflows/aws-docker-ecr-deploy.yml`
-- `.github/workflows/aws-full-release.yml`
+- `.github/workflows/aws-terraform-provision.yml`
+- `.github/workflows/aws-webapp-cdn-publish.yml`
+- `.github/workflows/aws-docker-ecr-publish.yml`
+- `.github/workflows/aws-deploy.yml`
 - `.github/workflows/terraform-tencent-deploy.yml`
 - `.github/workflows/terraform-azure-deploy.yml`
 

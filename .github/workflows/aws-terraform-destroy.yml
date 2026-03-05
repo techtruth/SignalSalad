@@ -1,7 +1,7 @@
-name: Terraform AWS Destroy
+name: AWS Terraform Destroy
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
