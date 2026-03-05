@@ -63,6 +63,16 @@ const summarizeServices = (services: unknown): string => {
     .join(" | ");
 };
 
+const isStartupInProgress = (payload: any): boolean => {
+  const services = Array.isArray(payload?.services) ? payload.services : [];
+  return services.some((svc: any) => {
+    const desired = Number(svc?.desiredCount ?? 0);
+    const running = Number(svc?.runningCount ?? 0);
+    const pending = Number(svc?.pendingCount ?? 0);
+    return desired > 0 || running > 0 || pending > 0;
+  });
+};
+
 const waitForDemoReady = async (
   statusEl: HTMLElement,
   detailEl: HTMLElement,
@@ -71,6 +81,7 @@ const waitForDemoReady = async (
   const minWaitMs = 60_000;
   const timeoutMs = 14 * 60_000;
   const pollMs = 3000;
+  const totalChecks = Math.ceil(timeoutMs / pollMs);
   const startedAt = Date.now();
   let checks = 0;
   let lastPhase = "";
@@ -80,7 +91,7 @@ const waitForDemoReady = async (
     const elapsedMs = Date.now() - startedAt;
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
     checks += 1;
-    detailEl.textContent = `Checks: ${checks} | Elapsed: ${elapsedSeconds}s | Timeout: ${Math.floor(
+    detailEl.textContent = `Checks: ${checks}/${totalChecks} | Elapsed: ${elapsedSeconds}s | Timeout: ${Math.floor(
       timeoutMs / 1000,
     )}s`;
 
@@ -106,7 +117,7 @@ const waitForDemoReady = async (
 
     if (ready && elapsedMs >= minWaitMs) {
       statusEl.textContent = "Demo servers are ready. Connecting...";
-      detailEl.textContent = `Checks: ${checks} | Elapsed: ${elapsedSeconds}s | Timeout: ${Math.floor(
+      detailEl.textContent = `Checks: ${checks}/${totalChecks} | Elapsed: ${elapsedSeconds}s | Timeout: ${Math.floor(
         timeoutMs / 1000,
       )}s`;
       return true;
@@ -216,7 +227,7 @@ export const mountStartModal = (onContinue: () => void): void => {
   });
 
   const syncExistingDemoState = async () => {
-    status.textContent = "Checking demo status...";
+    status.textContent = "";
     appendLogLine(log, "Checking current demo service status.");
     try {
       const response = await fetch("/demo/status", { method: "GET", cache: "no-store" });
@@ -231,7 +242,7 @@ export const mountStartModal = (onContinue: () => void): void => {
         return;
       }
 
-      if (payload?.status === "starting") {
+      if (payload?.status === "starting" && isStartupInProgress(payload)) {
         button.style.display = "none";
         const isReady = await waitForExistingProvisioning(status, detail, log);
         if (isReady) {
