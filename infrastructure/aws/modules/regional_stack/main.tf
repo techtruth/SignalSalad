@@ -62,6 +62,8 @@ locals {
         { name = "SIGNALING_HOST", value = var.signaling_host },
         { name = "SIGNALING_PORT", value = "1188" },
         { name = "REGION", value = var.region_key },
+        { name = "RTC_MIN_PORT", value = tostring(local.udp_from) },
+        { name = "RTC_MAX_PORT", value = tostring(local.ingress_to) },
       ]
       portMappings = [
         for port in local.ingress_udp_ports : {
@@ -91,6 +93,8 @@ locals {
         { name = "SIGNALING_HOST", value = var.signaling_host },
         { name = "SIGNALING_PORT", value = "1188" },
         { name = "REGION", value = var.region_key },
+        { name = "RTC_MIN_PORT", value = tostring(local.egress_from) },
+        { name = "RTC_MAX_PORT", value = tostring(local.udp_to) },
       ]
       portMappings = [
         for port in local.egress_udp_ports : {
