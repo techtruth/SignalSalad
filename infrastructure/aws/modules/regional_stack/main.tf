@@ -20,7 +20,9 @@ locals {
     local.udp_to + 1,
   ) : []
 
-  subnet_ids = sort([for subnet in aws_default_subnet.this : subnet.id])
+  subnet_ids               = sort([for subnet in aws_default_subnet.this : subnet.id])
+  signaling_log_group_name = var.create_signaling ? aws_cloudwatch_log_group.signaling[0].name : ""
+  media_log_group_name     = var.create_media ? aws_cloudwatch_log_group.media[0].name : ""
 
   signaling_container_definitions = jsonencode([
     {
@@ -42,7 +44,7 @@ locals {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.signaling[0].name
+          awslogs-group         = local.signaling_log_group_name
           awslogs-region        = data.aws_region.current.name
           awslogs-stream-prefix = "ecs"
         }
@@ -71,7 +73,7 @@ locals {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.media[0].name
+          awslogs-group         = local.media_log_group_name
           awslogs-region        = data.aws_region.current.name
           awslogs-stream-prefix = "ecs-ingress"
         }
@@ -100,7 +102,7 @@ locals {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.media[0].name
+          awslogs-group         = local.media_log_group_name
           awslogs-region        = data.aws_region.current.name
           awslogs-stream-prefix = "ecs-egress"
         }
