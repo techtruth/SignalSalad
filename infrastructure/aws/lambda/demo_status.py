@@ -154,6 +154,21 @@ def _schedule_stop():
 def handler(event, context):
     all_stable, services, _ = _describe_targets()
     phase = _phase_status(services)
+    all_scaled_down = len(services) > 0 and all(int(svc.get("desiredCount", 0)) == 0 for svc in services)
+
+    if all_scaled_down:
+        return {
+            "statusCode": 200,
+            "headers": {"content-type": "application/json"},
+            "body": json.dumps(
+                {
+                    "status": "idle",
+                    "phase": "idle",
+                    "message": "Demo services are not running",
+                    "services": services,
+                }
+            ),
+        }
 
     if phase["signaling_ready"] and not phase["media_desired_any"]:
         _scale_media_targets_up()
