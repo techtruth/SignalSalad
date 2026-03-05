@@ -129,8 +129,8 @@ variable "github_owner" {
   default     = "techtruth"
 
   validation {
-    condition     = var.manage_github_actions_secrets ? length(trimspace(var.github_owner)) > 0 : true
-    error_message = "github_owner cannot be empty when manage_github_actions_secrets is true."
+    condition     = length(trimspace(var.github_owner)) > 0
+    error_message = "github_owner cannot be empty."
   }
 }
 
@@ -140,7 +140,7 @@ variable "github_repository_name" {
   default     = "SignalSalad"
 
   validation {
-    condition     = var.manage_github_actions_secrets ? length(trimspace(var.github_repository_name)) > 0 : true
-    error_message = "github_repository_name cannot be empty when manage_github_actions_secrets is true."
+    condition     = length(trimspace(var.github_repository_name)) > 0
+    error_message = "github_repository_name cannot be empty."
   }
 }
