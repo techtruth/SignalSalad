@@ -1,0 +1,33 @@
+name: AWS Full Release
+
+on:
+  push:
+    tags:
+      - aws-full-deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: aws-full-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Provision AWS Infrastructure
+    uses: ./.github/workflows/terraform-aws-deploy.yml
+    secrets: inherit
+
+  docker_images:
+    name: Publish Docker Images
+    needs: terraform
+    uses: ./.github/workflows/aws-docker-ecr-deploy.yml
+    secrets: inherit
+
+  webapp:
+    name: Publish Webapp Assets
+    needs: docker_images
+    uses: ./.github/workflows/aws-webapp-cdn-deploy.yml
+    secrets: inherit

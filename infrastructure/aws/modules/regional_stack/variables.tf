@@ -4,17 +4,12 @@ variable "stack_name" {
 }
 
 variable "region_label" {
-  description = "Label used in resource names (region key)"
+  description = "Label used in resource names"
   type        = string
 }
 
-variable "ssh_key_name" {
-  description = "AWS key pair name to attach to instances"
-  type        = string
-}
-
-variable "allowed_ssh_cidr" {
-  description = "CIDR block allowed to SSH"
+variable "region_key" {
+  description = "Region label exposed to signaling/media runtime"
   type        = string
 }
 
@@ -24,31 +19,61 @@ variable "media_udp_port_range" {
 }
 
 variable "create_signaling" {
-  description = "Whether to create signaling node in this region"
+  description = "Whether to create signaling service in this region"
   type        = bool
 }
 
 variable "create_media" {
-  description = "Whether to create media node in this region"
+  description = "Whether to create media services in this region"
   type        = bool
 }
 
-variable "media_instance_type" {
-  description = "EC2 instance type for media node"
+variable "signaling_image" {
+  description = "Full ECR image URL for signaling"
   type        = string
 }
 
-variable "signaling_instance_type" {
-  description = "EC2 instance type for signaling node"
+variable "media_image" {
+  description = "Full ECR image URL for media"
   type        = string
 }
 
-variable "ubuntu_ami_name_pattern" {
-  description = "Ubuntu AMI name pattern to select"
+variable "signaling_host" {
+  description = "Signaling hostname used by media services"
   type        = string
 }
 
-variable "ubuntu_ami_owners" {
-  description = "AMI owner ids used for AMI selection"
-  type        = list(string)
+variable "signaling_task_cpu" {
+  description = "CPU units for signaling Fargate task"
+  type        = number
+}
+
+variable "signaling_task_memory" {
+  description = "Memory (MiB) for signaling Fargate task"
+  type        = number
+}
+
+variable "media_task_cpu" {
+  description = "CPU units for media Fargate task"
+  type        = number
+}
+
+variable "media_task_memory" {
+  description = "Memory (MiB) for media Fargate task"
+  type        = number
+}
+
+variable "signaling_desired_count" {
+  description = "Desired task count for signaling service"
+  type        = number
+}
+
+variable "media_ingress_desired_count" {
+  description = "Desired task count for ingress media service"
+  type        = number
+}
+
+variable "media_egress_desired_count" {
+  description = "Desired task count for egress media service"
+  type        = number
 }
