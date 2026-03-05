@@ -17,6 +17,10 @@ const LOCAL_HOSTNAMES = new Set([
   "[::]",
 ]);
 
+const DEMO_WARM_MINUTES = 15;
+const DEMO_SESSION_ESTIMATED_COST_USD = 0.06;
+const PAYPAL_DONATE_URL = "https://www.paypal.com/donate";
+
 const isLocalHost = (hostname) => {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   return (
@@ -44,17 +48,20 @@ const startWaitingIndicator = (statusEl) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const waitForDemoReady = async (statusEl) => {
+const waitForDemoReady = async (statusEl, detailEl) => {
   const minWaitMs = 60_000;
   const timeoutMs = 14 * 60_000;
   const pollMs = 3000;
   const startedAt = Date.now();
+  let checks = 0;
 
   while (Date.now() - startedAt < timeoutMs) {
     const elapsedMs = Date.now() - startedAt;
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
-    const minimumSeconds = Math.ceil(minWaitMs / 1000);
-    statusEl.textContent = `Starting demo servers... ${elapsedSeconds}s elapsed (minimum ${minimumSeconds}s wait)`;
+    checks += 1;
+    detailEl.textContent = `Checks: ${checks} | Elapsed: ${elapsedSeconds}s | Timeout: ${Math.floor(
+      timeoutMs / 1000,
+    )}s`;
 
     let ready = false;
     try {
@@ -69,6 +76,9 @@ const waitForDemoReady = async (statusEl) => {
 
     if (ready && elapsedMs >= minWaitMs) {
       statusEl.textContent = "Demo servers are ready. Connecting...";
+      detailEl.textContent = `Checks: ${checks} | Elapsed: ${elapsedSeconds}s | Timeout: ${Math.floor(
+        timeoutMs / 1000,
+      )}s`;
       return true;
     }
 
@@ -79,14 +89,14 @@ const waitForDemoReady = async (statusEl) => {
   return false;
 };
 
-const startDemoProvisioning = async (statusEl) => {
+const startDemoProvisioning = async (statusEl, detailEl) => {
   const stopIndicator = startWaitingIndicator(statusEl);
   try {
     const response = await fetch("/demo/start", { method: "POST" });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    return await waitForDemoReady(statusEl);
+    return await waitForDemoReady(statusEl, detailEl);
   } catch (err) {
     console.warn("Demo start endpoint failed.", err);
     statusEl.textContent = "Could not start demo servers. Please try again.";
@@ -103,26 +113,43 @@ const mountCostAdvisory = (onContinue) => {
   const modal = document.createElement("div");
   modal.className = "cost-advisory-modal";
   modal.innerHTML = `
-    <h2>Cost Advisory</h2>
-    <p>
-      This demo can start AWS infrastructure (Fargate tasks, networking, and data transfer).
-      Running costs may accrue while servers are active.
-    </p>
-    <p>
-      Click <strong>Start Demo Servers</strong> to continue.
-    </p>
+    <h2>Click the button to start demo servers</h2>
   `;
-
-  const status = document.createElement("p");
-  status.className = "cost-advisory-status";
 
   const button = document.createElement("button");
   button.className = "cost-advisory-action";
   button.type = "button";
   button.textContent = "Start Demo Servers";
+
+  const explainer = document.createElement("p");
+  explainer.className = "cost-advisory-explainer";
+  explainer.innerHTML = `
+    Starts the demo services for <strong>${DEMO_WARM_MINUTES} minutes</strong> at no charge to you.
+    Estimated AWS run cost per session: <strong>~$${DEMO_SESSION_ESTIMATED_COST_USD.toFixed(2)} USD</strong>.
+  `;
+
+  const status = document.createElement("p");
+  status.className = "cost-advisory-status";
+  status.textContent = "";
+
+  const detail = document.createElement("p");
+  detail.className = "cost-advisory-detail";
+  detail.textContent = "";
+
+  const donateCopy = document.createElement("p");
+  donateCopy.className = "cost-advisory-donate-copy";
+  donateCopy.textContent = "If this demo helps, please support it:";
+
+  const donateButton = document.createElement("a");
+  donateButton.className = "cost-advisory-donate-button";
+  donateButton.href = PAYPAL_DONATE_URL;
+  donateButton.target = "_blank";
+  donateButton.rel = "noopener noreferrer";
+  donateButton.textContent = "Donate with PayPal";
+
   button.addEventListener("click", async () => {
     button.disabled = true;
-    const isReady = await startDemoProvisioning(status);
+    const isReady = await startDemoProvisioning(status, detail);
     button.disabled = false;
     if (!isReady) {
       return;
@@ -131,8 +158,12 @@ const mountCostAdvisory = (onContinue) => {
     onContinue();
   });
 
-  modal.appendChild(status);
   modal.appendChild(button);
+  modal.appendChild(explainer);
+  modal.appendChild(status);
+  modal.appendChild(detail);
+  modal.appendChild(donateCopy);
+  modal.appendChild(donateButton);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 };
