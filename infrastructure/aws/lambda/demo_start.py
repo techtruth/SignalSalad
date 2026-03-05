@@ -9,8 +9,18 @@ def _targets():
     return json.loads(raw)
 
 
-def _scale_targets(desired_count: int):
+def _target_tier(target):
+    if "tier" in target:
+        return str(target["tier"]).lower()
+    service_name = str(target.get("service", "")).lower()
+    return "signaling" if "signaling" in service_name else "media"
+
+
+def _scale_targets(desired_count: int, allowed_tiers=None):
+    tiers = {tier.lower() for tier in (allowed_tiers or [])}
     for target in _targets():
+        if tiers and _target_tier(target) not in tiers:
+            continue
         region = target["region"]
         cluster = target["cluster"]
         service = target["service"]
@@ -19,14 +29,15 @@ def _scale_targets(desired_count: int):
 
 
 def handler(event, context):
-    _scale_targets(1)
+    _scale_targets(1, allowed_tiers=["signaling"])
     return {
         "statusCode": 202,
         "headers": {"content-type": "application/json"},
         "body": json.dumps(
             {
                 "status": "starting",
-                "message": "Demo server startup requested",
+                "phase": "signaling",
+                "message": "Signaling startup requested",
             }
         ),
     }

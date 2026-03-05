@@ -4,26 +4,31 @@ locals {
   # because aws_cloudfront_distribution.webapp is defined there.
   demo_ecs_targets = [
     {
+      tier    = "signaling"
       region  = "us-east-2"
       cluster = module.ohio[0].ecs_cluster_name
       service = module.ohio[0].signaling_service_name
     },
     {
+      tier    = "media"
       region  = "us-west-1"
       cluster = module.north_california[0].ecs_cluster_name
       service = module.north_california[0].media_ingress_service_name
     },
     {
+      tier    = "media"
       region  = "us-west-1"
       cluster = module.north_california[0].ecs_cluster_name
       service = module.north_california[0].media_egress_service_name
     },
     {
+      tier    = "media"
       region  = "us-east-1"
       cluster = module.north_virginia[0].ecs_cluster_name
       service = module.north_virginia[0].media_ingress_service_name
     },
     {
+      tier    = "media"
       region  = "us-east-1"
       cluster = module.north_virginia[0].ecs_cluster_name
       service = module.north_virginia[0].media_egress_service_name

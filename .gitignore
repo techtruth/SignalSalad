@@ -38,7 +38,10 @@ infrastructure/.aws.env
 infrastructure/aws/.aws.env
 infrastructure/tencent/.tencent.env
 infrastructure/screen-logs
+infrastructure/**/servers.screen
 infrastructure/**/servers.shell.screen
+infrastructure/**/__pycache__/
+infrastructure/**/*.pyc
 infrastructure/providers/**/.terraform
 infrastructure/providers/**/.terraform/**
 infrastructure/providers/**/.terraform.lock.hcl

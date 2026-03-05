@@ -11,6 +11,13 @@ def _targets():
     return json.loads(raw)
 
 
+def _target_tier(target):
+    if "tier" in target:
+        return str(target["tier"]).lower()
+    service_name = str(target.get("service", "")).lower()
+    return "signaling" if "signaling" in service_name else "media"
+
+
 def _group_targets():
     grouped = {}
     for target in _targets():
@@ -36,6 +43,8 @@ def _service_is_stable(service):
 
 def _describe_targets():
     service_states = []
+    by_name = {}
+    target_by_service = {target["service"]: target for target in _targets()}
 
     for (region, cluster), services in _group_targets().items():
         ecs = boto3.client("ecs", region_name=region)
@@ -49,15 +58,44 @@ def _describe_targets():
                         "region": region,
                         "cluster": cluster,
                         "service": service.get("serviceName"),
+                        "tier": _target_tier(target_by_service.get(service.get("serviceName"), {})),
                         "desiredCount": service.get("desiredCount", 0),
                         "runningCount": service.get("runningCount", 0),
                         "pendingCount": service.get("pendingCount", 0),
                         "stable": _service_is_stable(service),
                     }
                 )
+                by_name[service.get("serviceName")] = service_states[-1]
 
     all_stable = len(service_states) > 0 and all(s["stable"] for s in service_states)
-    return all_stable, service_states
+    return all_stable, service_states, by_name
+
+
+def _scale_media_targets_up():
+    for target in _targets():
+        if _target_tier(target) != "media":
+            continue
+        ecs = boto3.client("ecs", region_name=target["region"])
+        ecs.update_service(
+            cluster=target["cluster"],
+            service=target["service"],
+            desiredCount=1,
+        )
+
+
+def _phase_status(services):
+    signaling = [svc for svc in services if svc.get("tier") == "signaling"]
+    media = [svc for svc in services if svc.get("tier") == "media"]
+
+    signaling_ready = len(signaling) > 0 and all(svc.get("stable") for svc in signaling)
+    media_desired_any = any(int(svc.get("desiredCount", 0)) > 0 for svc in media)
+    media_ready = len(media) > 0 and all(svc.get("stable") for svc in media)
+
+    return {
+        "signaling_ready": signaling_ready,
+        "media_desired_any": media_desired_any,
+        "media_ready": media_ready,
+    }
 
 
 def _schedule_stop():
@@ -114,7 +152,23 @@ def _schedule_stop():
 
 
 def handler(event, context):
-    all_stable, services = _describe_targets()
+    all_stable, services, _ = _describe_targets()
+    phase = _phase_status(services)
+
+    if phase["signaling_ready"] and not phase["media_desired_any"]:
+        _scale_media_targets_up()
+        return {
+            "statusCode": 200,
+            "headers": {"content-type": "application/json"},
+            "body": json.dumps(
+                {
+                    "status": "starting",
+                    "phase": "media-starting",
+                    "message": "Signaling is stable. Media startup requested.",
+                    "services": services,
+                }
+            ),
+        }
 
     if all_stable:
         schedule_info = _schedule_stop()
@@ -124,6 +178,7 @@ def handler(event, context):
             "body": json.dumps(
                 {
                     "status": "ready",
+                    "phase": "ready",
                     "message": "Demo servers are stable and ready",
                     "services": services,
                     **schedule_info,
@@ -131,13 +186,24 @@ def handler(event, context):
             ),
         }
 
+    if not phase["signaling_ready"]:
+        message = "Waiting for signaling service to become stable"
+        phase_name = "signaling"
+    elif not phase["media_ready"]:
+        message = "Waiting for media services to become stable"
+        phase_name = "media"
+    else:
+        message = "Demo servers are still starting"
+        phase_name = "starting"
+
     return {
         "statusCode": 200,
         "headers": {"content-type": "application/json"},
         "body": json.dumps(
             {
                 "status": "starting",
-                "message": "Demo servers are still starting",
+                "phase": phase_name,
+                "message": message,
                 "services": services,
             }
         ),
