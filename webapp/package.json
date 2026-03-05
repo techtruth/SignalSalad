@@ -3,7 +3,7 @@
     "css-loader": "^6.9.0",
     "feather-icons": "^4.29.2",
     "html-webpack-plugin": "^5.5.3",
-    "mediasoup-client": "^3.7.1",
+    "mediasoup-client": "^3.18.7",
     "mini-css-extract-plugin": "^2.7.6",
     "minimist": "^1.2.8",
     "ts-loader": "^9.5.1",
