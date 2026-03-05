@@ -39,8 +39,6 @@ terraform destroy
 - ECR repositories are created with `force_delete` enabled by default so `terraform destroy` can remove them even if images still exist (`ecr_force_delete = true`).
 - CIDRs are not configured in this project. Networking uses each region's AWS default VPC and default subnet.
 - Webapp static assets are served via CloudFront with an S3 origin and websocket paths (`/signaling*`, `/status*`) proxied to the signaling host.
-- Optional: Terraform can sync `AWS_WEBAPP_ASSETS_BUCKET` and `AWS_WEBAPP_CDN_DISTRIBUTION_ID` GitHub Actions secrets when `manage_github_actions_secrets = true` and `GITHUB_TOKEN` is provided.
-- Optional: Terraform can also sync `AWS_ECR_SIGNALING_REPOSITORY` and `AWS_ECR_MEDIA_REPOSITORY` GitHub Actions secrets for Docker image publish workflows.
 
 ## Webapp Upload (S3 + CDN)
 

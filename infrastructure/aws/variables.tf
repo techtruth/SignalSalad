@@ -116,31 +116,3 @@ variable "webapp_cdn_price_class" {
     error_message = "webapp_cdn_price_class must be one of PriceClass_All, PriceClass_200, or PriceClass_100."
   }
 }
-
-variable "manage_github_actions_secrets" {
-  description = "Whether Terraform should update repository GitHub Actions secrets for webapp CDN deploy"
-  type        = bool
-  default     = false
-}
-
-variable "github_owner" {
-  description = "GitHub owner (user or org) for the repository where secrets are managed"
-  type        = string
-  default     = "techtruth"
-
-  validation {
-    condition     = length(trimspace(var.github_owner)) > 0
-    error_message = "github_owner cannot be empty."
-  }
-}
-
-variable "github_repository_name" {
-  description = "GitHub repository name for Actions secret management"
-  type        = string
-  default     = "SignalSalad"
-
-  validation {
-    condition     = length(trimspace(var.github_repository_name)) > 0
-    error_message = "github_repository_name cannot be empty."
-  }
-}

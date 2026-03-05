@@ -27,10 +27,18 @@ jobs:
     name: Publish Docker Images
     needs: terraform
     uses: ./.github/workflows/aws-docker-ecr-deploy.yml
+    with:
+      ecr_signaling_repository: ${{ needs.terraform.outputs.ecr_signaling_repository }}
+      ecr_media_repository: ${{ needs.terraform.outputs.ecr_media_repository }}
     secrets: inherit
 
   webapp:
     name: Publish Webapp Assets
-    needs: docker_images
+    needs:
+      - terraform
+      - docker_images
     uses: ./.github/workflows/aws-webapp-cdn-deploy.yml
+    with:
+      webapp_assets_bucket: ${{ needs.terraform.outputs.webapp_assets_bucket }}
+      webapp_cdn_distribution_id: ${{ needs.terraform.outputs.webapp_cdn_distribution_id }}
     secrets: inherit

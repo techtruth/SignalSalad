@@ -6,6 +6,17 @@ on:
       - aws-docker-deploy
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ecr_signaling_repository:
+        description: "ECR repository URL for signaling image"
+        required: false
+        type: string
+        default: ""
+      ecr_media_repository:
+        description: "ECR repository URL for media image"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -21,8 +32,8 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_ECR_SIGNALING_REPOSITORY: ${{ secrets.AWS_ECR_SIGNALING_REPOSITORY }}
-      AWS_ECR_MEDIA_REPOSITORY: ${{ secrets.AWS_ECR_MEDIA_REPOSITORY }}
+      AWS_ECR_SIGNALING_REPOSITORY: ${{ inputs.ecr_signaling_repository != '' && inputs.ecr_signaling_repository || secrets.AWS_ECR_SIGNALING_REPOSITORY }}
+      AWS_ECR_MEDIA_REPOSITORY: ${{ inputs.ecr_media_repository != '' && inputs.ecr_media_repository || secrets.AWS_ECR_MEDIA_REPOSITORY }}
     defaults:
       run:
         shell: bash

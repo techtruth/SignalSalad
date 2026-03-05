@@ -6,6 +6,17 @@ on:
       - aws-webapp-deploy
   workflow_dispatch:
   workflow_call:
+    inputs:
+      webapp_assets_bucket:
+        description: "S3 bucket name for webapp assets"
+        required: false
+        type: string
+        default: ""
+      webapp_cdn_distribution_id:
+        description: "CloudFront distribution ID for webapp CDN"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -21,8 +32,8 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_WEBAPP_ASSETS_BUCKET: ${{ secrets.AWS_WEBAPP_ASSETS_BUCKET }}
-      AWS_WEBAPP_CDN_DISTRIBUTION_ID: ${{ secrets.AWS_WEBAPP_CDN_DISTRIBUTION_ID }}
+      AWS_WEBAPP_ASSETS_BUCKET: ${{ inputs.webapp_assets_bucket != '' && inputs.webapp_assets_bucket || secrets.AWS_WEBAPP_ASSETS_BUCKET }}
+      AWS_WEBAPP_CDN_DISTRIBUTION_ID: ${{ inputs.webapp_cdn_distribution_id != '' && inputs.webapp_cdn_distribution_id || secrets.AWS_WEBAPP_CDN_DISTRIBUTION_ID }}
     defaults:
       run:
         shell: bash
