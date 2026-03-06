@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "include": ["server.ts", "lib/**/*.ts", "lib/**/*.d.ts", "../types/**/*.d.ts"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "types/*": ["../types/*"],
+      "mediasoup/types": ["node_modules/mediasoup/node/lib/types"]
+    },
+    "lib": [
+      "esnext"
+    ],
+    "module": "nodenext",
+    "target": "esnext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": false,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "nodenext",
+    "verbatimModuleSyntax": true,
+    "types": [
+      "node"
+    ],
+    "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": true,
+    "declaration": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
+  }
+}

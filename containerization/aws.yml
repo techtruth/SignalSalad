@@ -1,0 +1,98 @@
+x-media-base: &media-base
+  image: ${MEDIA_IMAGE}
+  user: "node"
+  deploy:
+    resources:
+      reservations:
+        cpus: "0.0"
+
+x-media-env-base: &media-env-base
+  DEBUG: ${DEBUG:-}
+  MEDIASOUP_LOG_LEVEL: debug
+  MEDIASOUP_LOG_TAGS: info,ice,dtls,rtp,srtp,rtcp,rtx,bwe,score,simulcast,svc,sctp,message
+  SIGNAL_TRACE: 1
+  SIGNALING_HOST: ${SIGNALING_HOST}
+  ANNOUNCED_IP: ${ANNOUNCED_IP}
+  REGION: ${REGION}
+
+services:
+  webapp:
+    image: ${WEBAPP_IMAGE}
+    user: "node"
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.0"
+    volumes:
+      - webapp-dist:/container/app/dist
+    entrypoint: ["/bin/bash", "-c", "npm run dev"]
+
+  signaling:
+    image: ${SIGNALING_IMAGE}
+    user: "node"
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.0"
+    ports:
+      - 80:8080
+      - 443:8443
+      - 1188:1188/tcp
+    volumes:
+      - webapp-dist:/container/app/public
+      - letsencrypt-webroot:/container/app/public/.well-known/acme-challenge
+      - letsencrypt-certs:/etc/letsencrypt:ro
+    environment:
+      DOMAIN: ${DOMAIN}
+    entrypoint: ["/bin/bash", "-c", "npm run dev"]
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - letsencrypt-webroot:/var/www/certbot
+      - letsencrypt-certs:/etc/letsencrypt
+    environment:
+      DOMAIN: ${DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        if [ -z "$DOMAIN" ] || [ -z "$LETSENCRYPT_EMAIL" ]; then
+          echo "Missing DOMAIN or LETSENCRYPT_EMAIL";
+          exit 1;
+        fi;
+        if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+          certbot certonly --webroot -w /var/www/certbot
+            --agree-tos --non-interactive --email "$LETSENCRYPT_EMAIL"
+            -d "$DOMAIN";
+        fi;
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet;
+          sleep 12h;
+        done
+
+  ingress:
+    <<: *media-base
+    ports:
+      - 10000-10049:10000-10049/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10000
+      RTC_MAX_PORT: 10049
+    entrypoint: ["/bin/bash", "-c", "sleep 10 && npm run ingress"]
+
+  egress:
+    <<: *media-base
+    ports:
+      - 10050-10100:10050-10100/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10050
+      RTC_MAX_PORT: 10100
+    entrypoint: ["/bin/bash", "-c", "sleep 10 && npm run egress"]
+
+volumes:
+  webapp-dist:
+  letsencrypt-webroot:
+  letsencrypt-certs:

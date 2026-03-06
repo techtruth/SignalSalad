@@ -1,0 +1,40 @@
+{
+  "dependencies": {
+    "css-loader": "^7.1.4",
+    "feather-icons": "^4.29.2",
+    "html-webpack-plugin": "^5.6.6",
+    "mediasoup-client": "^3.18.7",
+    "mini-css-extract-plugin": "^2.10.0",
+    "minimist": "^1.2.8",
+    "ts-loader": "^9.5.4",
+    "webpack": "^5.105.4"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.1",
+    "typedoc": "^0.28.17",
+    "typedoc-plugin-mermaid": "^1.12.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --watch",
+    "docs": "npm run docs:harness && npm run docs:demo-ui",
+    "docs:harness": "typedoc --options typedoc.json",
+    "docs:demo-ui": "typedoc --options typedoc.demo-ui.json",
+    "lint": "eslint ./",
+    "lint:fix": "eslint ./ --fix",
+    "tsc": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "name": "webapp",
+  "version": "0.1.0-alpha.1",
+  "description": "Dummy webapp prior to React replacement",
+  "main": "server.js",
+  "author": "techtruth@gmail.com",
+  "license": "ISC"
+}

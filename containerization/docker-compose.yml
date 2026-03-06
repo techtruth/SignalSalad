@@ -1,0 +1,220 @@
+x-media-base: &media-base
+  build:
+    context: ..
+    dockerfile: containerization/Dockerfile.media
+  user: "node"
+  deploy:
+    restart_policy:
+      condition: on-failure
+      max_attempts: 10
+  volumes:
+    - ../media:/container/app
+    - media-node-modules:/container/app/node_modules
+
+x-media-env-base: &media-env-base
+  DEBUG: ${DEBUG:-}
+  MEDIASOUP_LOG_LEVEL: debug
+  MEDIASOUP_LOG_TAGS: info,ice,dtls,rtp,srtp,rtcp,rtx,bwe,score,simulcast,svc,sctp,message
+  SIGNAL_TRACE: 1
+  SIGNALING_HOST: ${SIGNALING_HOST:-signaling}
+  ANNOUNCED_IP: ${ANNOUNCED_IP}
+
+services:
+  webapp:
+    build:
+      context: ..
+      dockerfile: containerization/Dockerfile.webapp
+    user: "node"
+    volumes:
+      - ../webapp:/container/app
+      - webapp-node-modules:/container/app/node_modules
+      - webapp-dist:/container/app/dist
+    entrypoint: ["/bin/bash", "-c", "npm run dev"]
+
+  signaling:
+    build:
+      context: ..
+      dockerfile: containerization/Dockerfile.signaling
+    user: "node"
+    ports:
+      - 8080:8080
+      - 8443:8443
+      - 1188:1188/tcp
+    volumes:
+      - ../signaling:/container/app
+      - signaling-node-modules:/container/app/node_modules
+      - webapp-dist:/container/app/public
+      - ../docs:/container/app/public/docs:ro
+      - letsencrypt-webroot:/container/app/public/.well-known/acme-challenge
+      - letsencrypt-certs:/etc/letsencrypt:ro
+    environment:
+      DOMAIN: ${DOMAIN}
+    entrypoint: ["/bin/bash", "-c", "npm run dev"]
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - letsencrypt-webroot:/var/www/certbot
+      - letsencrypt-certs:/etc/letsencrypt
+    environment:
+      DOMAIN: ${DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        if [ -z "$DOMAIN" ] || [ -z "$LETSENCRYPT_EMAIL" ]; then
+          echo "Missing DOMAIN or LETSENCRYPT_EMAIL; certbot renewal loop disabled.";
+          while :; do sleep 12h; done;
+        fi;
+        if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+          certbot certonly --webroot -w /var/www/certbot
+            --agree-tos --non-interactive --email "$LETSENCRYPT_EMAIL"
+            -d "$DOMAIN";
+        fi;
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet;
+          sleep 12h;
+        done
+
+  ingress:
+    <<: *media-base
+    depends_on:
+      - signaling
+    ports:
+      - 10000-10049:10000-10049/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10000
+      RTC_MAX_PORT: 10049
+      REGION: ${REGION:-local}
+    entrypoint: ["/bin/bash", "-c", "npm run ingress:watch"]
+
+  ingress_and_egress_ingress:
+    <<: *media-base
+    profiles: ["ingress-and-egress"]
+    ports:
+      - 10000-10049:10000-10049/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10000
+      RTC_MAX_PORT: 10049
+      REGION: ${REGION:-local}
+    entrypoint: ["/bin/bash", "-c", "npm run ingress:watch"]
+
+  egress:
+    <<: *media-base
+    depends_on:
+      - signaling
+    ports:
+      - 10050-10100:10050-10100/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10050
+      RTC_MAX_PORT: 10100
+      REGION: ${REGION:-local}
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  ingress_and_egress_egress:
+    <<: *media-base
+    profiles: ["ingress-and-egress"]
+    ports:
+      - 10050-10100:10050-10100/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10050
+      RTC_MAX_PORT: 10100
+      REGION: ${REGION:-local}
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  egress_2:
+    <<: *media-base
+    profiles: ["multiegress", "multiregion"]
+    depends_on:
+      - signaling
+    ports:
+      - 10101-10150:10101-10150/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10101
+      RTC_MAX_PORT: 10150
+      REGION: ${REGION:-local}
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  egress_3:
+    <<: *media-base
+    profiles: ["multiegress", "multiregion"]
+    depends_on:
+      - signaling
+    ports:
+      - 10151-10200:10151-10200/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 10151
+      RTC_MAX_PORT: 10200
+      REGION: ${REGION:-local}
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  ingress_local_2:
+    <<: *media-base
+    profiles: ["multiregion"]
+    depends_on:
+      - signaling
+    ports:
+      - 11000-11049:11000-11049/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 11000
+      RTC_MAX_PORT: 11049
+      REGION: local-2
+    entrypoint: ["/bin/bash", "-c", "npm run ingress:watch"]
+
+  egress_local_2:
+    <<: *media-base
+    profiles: ["multiregion"]
+    depends_on:
+      - signaling
+    ports:
+      - 11050-11100:11050-11100/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 11050
+      RTC_MAX_PORT: 11100
+      REGION: local-2
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  egress_local_2_2:
+    <<: *media-base
+    profiles: ["multiregion"]
+    depends_on:
+      - signaling
+    ports:
+      - 11101-11150:11101-11150/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 11101
+      RTC_MAX_PORT: 11150
+      REGION: local-2
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  egress_local_2_3:
+    <<: *media-base
+    profiles: ["multiregion"]
+    depends_on:
+      - signaling
+    ports:
+      - 11151-11200:11151-11200/udp
+    environment:
+      <<: *media-env-base
+      RTC_MIN_PORT: 11151
+      RTC_MAX_PORT: 11200
+      REGION: local-2
+    entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+volumes:
+  webapp-dist:
+  webapp-node-modules:
+  signaling-node-modules:
+  media-node-modules:
+  letsencrypt-webroot:
+  letsencrypt-certs:

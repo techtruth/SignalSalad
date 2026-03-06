@@ -1,0 +1,37 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "SignalSalad Mediasoup Session Controller",
+  "entryPoints": ["lib/controllers/**/*.ts"],
+  "plugin": ["typedoc-plugin-mermaid"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "tsconfig.json",
+  "sourceLinkTemplate": "https://github.com/techtruth/signalsalad/blob/main/webapp/lib/controllers/{path}#L{line}",
+  "disableGit": true,
+  "out": "../docs/generated/harness",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "exclude": [
+    "**/mediasoupSessionControllerEvents.ts",
+    "**/mediasoupSessionControllerState.ts"
+  ],
+  "excludeCategories": [
+    "Architecture",
+    "Internals"
+  ],
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Implementer API",
+    "Architecture",
+    "Internals",
+    "Other"
+  ],
+  "readme": "lib/controllers/README.md",
+  "navigationLinks": {
+    "Docs Home": "https://github.com/techtruth/signalsalad/blob/main/docs/README.md",
+    "Architecture": "https://github.com/techtruth/signalsalad/blob/main/docs/architecture/README.md",
+    "Harness": "/docs/harness",
+    "Demo UI": "/docs/demo-ui",
+    "Signaling": "/docs/signaling",
+    "Media Server": "/docs/mediaserver"
+  }
+}

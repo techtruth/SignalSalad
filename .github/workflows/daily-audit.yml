@@ -1,0 +1,41 @@
+name: Daily Audit
+
+on:
+  schedule:
+    # Runs daily at 09:00 UTC
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Run npm audit across workspaces
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            signaling/package-lock.json
+            media/package-lock.json
+            webapp/package-lock.json
+
+      - name: Install dependencies
+        run: make dev-deps
+
+      - name: Run audit
+        run: make audit
