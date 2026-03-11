@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@types/node": "^25.3.5",
+    "@types/node": "^25.4.0",
     "length-prefixed-stream": "^2.0.0",
     "mediasoup": "^3.19.17",
     "minimist": "^1.2.8",
