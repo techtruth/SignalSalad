@@ -48,7 +48,7 @@ jobs:
           test -n "${AWS_WEBAPP_CDN_DISTRIBUTION_ID}" || { echo "Missing secret: AWS_WEBAPP_CDN_DISTRIBUTION_ID"; exit 1; }
 
       - name: Setup Node for webapp build
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
