@@ -2,7 +2,7 @@
   "dependencies": {
     "express": "^5.2.1",
     "length-prefixed-stream": "^2.0.0",
-    "mediasoup": "^3.19.17",
+    "mediasoup": "^3.19.18",
     "pem": "^1.14.8",
     "tsx": "^4.21.0",
     "uuid4": "^2.0.3",
