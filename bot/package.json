@@ -1,0 +1,9 @@
+{
+  "name": "signalsalad-webrtc-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "puppeteer-core": "^24.10.2"
+  }
+}

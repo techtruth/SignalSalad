@@ -1,3 +1,5 @@
+name: mediasalad
+
 x-media-base: &media-base
   build:
     context: ..
@@ -21,6 +23,7 @@ x-media-env-base: &media-env-base
 
 services:
   webapp:
+    profiles: ["stack"]
     build:
       context: ..
       dockerfile: containerization/Dockerfile.webapp
@@ -32,6 +35,7 @@ services:
     entrypoint: ["/bin/bash", "-c", "npm run dev"]
 
   signaling:
+    profiles: ["stack"]
     build:
       context: ..
       dockerfile: containerization/Dockerfile.signaling
@@ -49,9 +53,14 @@ services:
       - letsencrypt-certs:/etc/letsencrypt:ro
     environment:
       DOMAIN: ${DOMAIN}
+    networks:
+      default:
+        aliases:
+          - signaling.local
     entrypoint: ["/bin/bash", "-c", "npm run dev"]
 
   certbot:
+    profiles: ["stack"]
     image: certbot/certbot:latest
     volumes:
       - letsencrypt-webroot:/var/www/certbot
@@ -79,6 +88,7 @@ services:
 
   ingress:
     <<: *media-base
+    profiles: ["stack"]
     depends_on:
       - signaling
     ports:
@@ -104,6 +114,7 @@ services:
 
   egress:
     <<: *media-base
+    profiles: ["stack"]
     depends_on:
       - signaling
     ports:
@@ -210,6 +221,25 @@ services:
       RTC_MAX_PORT: 11200
       REGION: local-2
     entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
+
+  bot:
+    profiles: ["bottest"]
+    build:
+      context: ..
+      dockerfile: containerization/Dockerfile.bot
+    volumes:
+      - ../bot/logs:/bot/logs
+    environment:
+      BOT_APP_URL: ${BOT_APP_URL:-https://signaling.local:8443}
+      BOT_ROOM: ${BOT_ROOM:-}
+      BOT_ROOM_PREFIX: ${BOT_ROOM_PREFIX:-}
+      BOT_INDEX: ${BOT_INDEX:-}
+      BOT_START_DELAY_MS: ${BOT_START_DELAY_MS:-0}
+      BOT_START_STAGGER_MS: ${BOT_START_STAGGER_MS:-5000}
+      BOT_START_STAGGER_RESET_MS: ${BOT_START_STAGGER_RESET_MS:-120000}
+      BOT_ROOM_EGRESS_READY_TIMEOUT_MS: ${BOT_ROOM_EGRESS_READY_TIMEOUT_MS:-90000}
+      BOT_MEDIA_ENABLE_TIMEOUT_MS: ${BOT_MEDIA_ENABLE_TIMEOUT_MS:-90000}
+      BOT_LOG_DIR: ${BOT_LOG_DIR:-/bot/logs}
 
 volumes:
   webapp-dist:
