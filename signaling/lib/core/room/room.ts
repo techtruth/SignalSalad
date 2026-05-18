@@ -59,6 +59,14 @@ export class Room {
     return true;
   }
 
+  private isRequestingPeerEgressReady(peer: JoinedPeer) {
+    const egressServers = this.getRoomEgressServers(peer.room);
+    if (!egressServers.length) {
+      return false;
+    }
+    return this.isPeerEgressReady(peer, egressServers);
+  }
+
   /**
    * Recomputes room lifecycle/readiness after any routing membership update.
    *
@@ -208,18 +216,18 @@ export class Room {
   }
 
   /**
-   * Validates room readiness for one peer operation.
+   * Validates requester egress readiness for one peer operation.
    *
-   * Emits a websocket error to the peer when the room is not ready.
+   * Emits a websocket error to the peer when its own egress mappings are not ready.
    *
    * @param peerId - Peer id initiating the operation.
    * @param context - Caller context for diagnostics/error wording.
-   * @returns `true` when room is ready, otherwise `false`.
+   * @returns `true` when requester egress is ready, otherwise `false`.
    */
   ensureRoomEgressReady(peerId: Guid, context: string) {
     const peer = this.context.membership.requireAttachedPeer(peerId, context);
     const room = peer.room;
-    if (!this.isRoomEgressReady(room)) {
+    if (!this.isRequestingPeerEgressReady(peer)) {
       this.context.signalingMessenger.sendWebsocketMessage(
         peer.transportSignal,
         "error",

@@ -92,11 +92,11 @@ services:
     depends_on:
       - signaling
     ports:
-      - 10000-10049:10000-10049/udp
+      - ${INGRESS_RTC_MIN_PORT:-10000}-${INGRESS_RTC_MAX_PORT:-10499}:${INGRESS_RTC_MIN_PORT:-10000}-${INGRESS_RTC_MAX_PORT:-10499}/udp
     environment:
       <<: *media-env-base
-      RTC_MIN_PORT: 10000
-      RTC_MAX_PORT: 10049
+      RTC_MIN_PORT: ${INGRESS_RTC_MIN_PORT:-10000}
+      RTC_MAX_PORT: ${INGRESS_RTC_MAX_PORT:-10499}
       REGION: ${REGION:-local}
     entrypoint: ["/bin/bash", "-c", "npm run ingress:watch"]
 
@@ -118,11 +118,11 @@ services:
     depends_on:
       - signaling
     ports:
-      - 10050-10100:10050-10100/udp
+      - ${EGRESS_RTC_MIN_PORT:-10500}-${EGRESS_RTC_MAX_PORT:-10999}:${EGRESS_RTC_MIN_PORT:-10500}-${EGRESS_RTC_MAX_PORT:-10999}/udp
     environment:
       <<: *media-env-base
-      RTC_MIN_PORT: 10050
-      RTC_MAX_PORT: 10100
+      RTC_MIN_PORT: ${EGRESS_RTC_MIN_PORT:-10500}
+      RTC_MAX_PORT: ${EGRESS_RTC_MAX_PORT:-10999}
       REGION: ${REGION:-local}
     entrypoint: ["/bin/bash", "-c", "npm run egress:watch"]
 
@@ -235,7 +235,7 @@ services:
       BOT_ROOM_PREFIX: ${BOT_ROOM_PREFIX:-}
       BOT_INDEX: ${BOT_INDEX:-}
       BOT_START_DELAY_MS: ${BOT_START_DELAY_MS:-0}
-      BOT_START_STAGGER_MS: ${BOT_START_STAGGER_MS:-5000}
+      BOT_START_STAGGER_MS: ${BOT_START_STAGGER_MS:-0}
       BOT_START_STAGGER_RESET_MS: ${BOT_START_STAGGER_RESET_MS:-120000}
       BOT_ROOM_EGRESS_READY_TIMEOUT_MS: ${BOT_ROOM_EGRESS_READY_TIMEOUT_MS:-90000}
       BOT_MEDIA_ENABLE_TIMEOUT_MS: ${BOT_MEDIA_ENABLE_TIMEOUT_MS:-90000}

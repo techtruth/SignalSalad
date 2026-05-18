@@ -128,10 +128,30 @@ const asClosableWebSocket = (
   return candidate as ClosableWebSocketLike;
 };
 
+const resolvePositiveIntOrDefault = (
+  value: string | undefined,
+  fallback: number,
+) => {
+  if (!value || value.trim().length === 0) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+};
+
 /** Periodic interval for `systemStatus` snapshots. */
-const STATUS_BROADCAST_INTERVAL_MS = 5000;
+const STATUS_BROADCAST_INTERVAL_MS = resolvePositiveIntOrDefault(
+  process.env.STATUS_BROADCAST_INTERVAL_MS,
+  5000,
+);
 /** Timeout for receiving all requested router dumps in one status cycle. */
-const ROUTER_DUMP_TIMEOUT_MS = 2000;
+const ROUTER_DUMP_TIMEOUT_MS = resolvePositiveIntOrDefault(
+  process.env.STATUS_ROUTER_DUMP_TIMEOUT_MS,
+  8000,
+);
 
 /**
  * Reconstructs active ingress->egress pipe pairs from per-server router dumps so status

@@ -4,16 +4,10 @@ import puppeteer from "puppeteer-core";
 
 const env = process.env;
 const hostname = env.HOSTNAME || "bot";
-const hostnameSuffix = hostname.match(/-(\d+)$/);
-const derivedIndex = hostnameSuffix ? Number.parseInt(hostnameSuffix[1], 10) : 1;
-const botIndex = Number.parseInt(env.BOT_INDEX || `${derivedIndex}`, 10);
-const roomPrefix = (env.BOT_ROOM_PREFIX || "").trim();
-const explicitRoom = (env.BOT_ROOM || "").trim();
-const room = explicitRoom || (roomPrefix ? `${roomPrefix}-${botIndex}` : "demo");
+const logDir = env.BOT_LOG_DIR || "/bot/logs";
 const appUrlBase = env.BOT_APP_URL || "https://signaling.local:8443";
 const appUrl = `${appUrlBase.replace(/\/$/, "")}/?demoModal=0`;
 const slowStartMs = Number.parseInt(env.BOT_START_DELAY_MS || "0", 10);
-const logDir = env.BOT_LOG_DIR || "/bot/logs";
 const roomEgressReadyTimeoutMs = Number.parseInt(
   env.BOT_ROOM_EGRESS_READY_TIMEOUT_MS || "90000",
   10,
@@ -22,13 +16,125 @@ const mediaEnableTimeoutMs = Number.parseInt(
   env.BOT_MEDIA_ENABLE_TIMEOUT_MS || "90000",
   10,
 );
-const startStaggerMs = Number.parseInt(env.BOT_START_STAGGER_MS || "5000", 10);
+const startStaggerMs = Number.parseInt(env.BOT_START_STAGGER_MS || "0", 10);
 const startStaggerResetMs = Number.parseInt(
   env.BOT_START_STAGGER_RESET_MS || "120000",
   10,
 );
 const startStaggerStateDir =
   env.BOT_START_STAGGER_STATE_DIR || path.join(logDir, ".startup-stagger");
+
+const parsePositiveInteger = (value) => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return undefined;
+  }
+  return parsed;
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const acquireFileLock = async (lockPath) => {
+  const lockWaitTimeoutMs = 30000;
+  const staleLockMs = 60000;
+  const startedAtMs = Date.now();
+  while (true) {
+    try {
+      return await fs.promises.open(lockPath, "wx");
+    } catch (error) {
+      if (error?.code !== "EEXIST") {
+        throw error;
+      }
+      try {
+        const stat = await fs.promises.stat(lockPath);
+        if (Date.now() - stat.mtimeMs > staleLockMs) {
+          await fs.promises.unlink(lockPath);
+          continue;
+        }
+      } catch {
+        // Lock may have been removed by another process between stat/unlink.
+      }
+      if (Date.now() - startedAtMs > lockWaitTimeoutMs) {
+        throw new Error(`Timed out waiting for startup lock: ${lockPath}`);
+      }
+      await sleep(100);
+    }
+  }
+};
+
+const resolveSharedBotIndex = async () => {
+  await fs.promises.mkdir(startStaggerStateDir, { recursive: true });
+  const lockPath = path.join(startStaggerStateDir, "index.lock");
+  const statePath = path.join(startStaggerStateDir, "index-state.json");
+  const lockHandle = await acquireFileLock(lockPath);
+
+  let index = 1;
+  try {
+    const nowMs = Date.now();
+    let state = { nextIndex: 1, lastAssignedAtMs: 0 };
+    try {
+      const raw = await fs.promises.readFile(statePath, "utf8");
+      const parsed = JSON.parse(raw);
+      state = {
+        nextIndex: Number.isFinite(parsed?.nextIndex)
+          ? parsed.nextIndex
+          : 1,
+        lastAssignedAtMs: Number.isFinite(parsed?.lastAssignedAtMs)
+          ? parsed.lastAssignedAtMs
+          : 0,
+      };
+    } catch {
+      // First startup or corrupt state; start from index 1.
+    }
+
+    if (
+      !Number.isFinite(state.lastAssignedAtMs) ||
+      nowMs - state.lastAssignedAtMs > startStaggerResetMs
+    ) {
+      state.nextIndex = 1;
+    }
+
+    index = Math.max(1, Math.floor(state.nextIndex));
+    const nextState = {
+      nextIndex: index + 1,
+      lastAssignedAtMs: nowMs,
+    };
+    await fs.promises.writeFile(
+      statePath,
+      `${JSON.stringify(nextState)}\n`,
+      "utf8",
+    );
+  } finally {
+    await lockHandle.close();
+    await fs.promises.unlink(lockPath).catch(() => {});
+  }
+
+  return index;
+};
+
+const resolveBotIdentity = async () => {
+  const explicitIndex = parsePositiveInteger(env.BOT_INDEX);
+  if (explicitIndex) {
+    return { botIndex: explicitIndex, source: "env" };
+  }
+
+  const hostnameSuffix = hostname.match(/-(\d+)$/);
+  const hostnameIndex = parsePositiveInteger(hostnameSuffix?.[1]);
+  if (hostnameIndex) {
+    return { botIndex: hostnameIndex, source: "hostname" };
+  }
+
+  const allocatedIndex = await resolveSharedBotIndex();
+  return { botIndex: allocatedIndex, source: "shared-state" };
+};
+
+const { botIndex, source: botIndexSource } = await resolveBotIdentity();
+const roomPrefix = (env.BOT_ROOM_PREFIX || "").trim();
+const explicitRoom = (env.BOT_ROOM || "").trim();
+const room = explicitRoom || (roomPrefix ? `${roomPrefix}-${botIndex}` : "demo");
 
 const runId = new Date().toISOString().replace(/[:.]/g, "-");
 const safeHostname = hostname.replace(/[^a-zA-Z0-9_.-]/g, "_");
@@ -37,8 +143,6 @@ const logPath = path.join(logDir, logFileName);
 
 fs.mkdirSync(logDir, { recursive: true });
 const logStream = fs.createWriteStream(logPath, { flags: "a" });
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const normalizeError = (value) => {
   if (value instanceof Error) {
@@ -307,34 +411,6 @@ const ensureMediaEnabled = async (page, kind) => {
   await waitForMediaEnabled(page, kind, mediaEnableTimeoutMs);
 };
 
-const acquireFileLock = async (lockPath) => {
-  const lockWaitTimeoutMs = 30000;
-  const staleLockMs = 60000;
-  const startedAtMs = Date.now();
-  while (true) {
-    try {
-      return await fs.promises.open(lockPath, "wx");
-    } catch (error) {
-      if (error?.code !== "EEXIST") {
-        throw error;
-      }
-      try {
-        const stat = await fs.promises.stat(lockPath);
-        if (Date.now() - stat.mtimeMs > staleLockMs) {
-          await fs.promises.unlink(lockPath);
-          continue;
-        }
-      } catch {
-        // Lock may have been removed by another process between stat/unlink.
-      }
-      if (Date.now() - startedAtMs > lockWaitTimeoutMs) {
-        throw new Error(`Timed out waiting for startup lock: ${lockPath}`);
-      }
-      await sleep(100);
-    }
-  }
-};
-
 const computeStartupDelay = async () => {
   const baseDelayMs = Number.isFinite(slowStartMs) && slowStartMs > 0 ? slowStartMs : 0;
   if (!(Number.isFinite(startStaggerMs) && startStaggerMs > 0)) {
@@ -438,7 +514,7 @@ process.on("SIGINT", () => {
   void flushAndExit(0);
 });
 
-writeLog("info", "bot_start", { logPath, slowStartMs });
+writeLog("info", "bot_start", { logPath, slowStartMs, botIndexSource });
 
 try {
   const startup = await computeStartupDelay();

@@ -404,12 +404,12 @@ test("sfu: createEgressConsumer pipes producers into the consumer transport rout
   sfu.producerRoomNames.set("producer-1", "demo");
   sfu.producerRouterIds.set("producer-1", "router-source");
 
-  await sfu.createEgressConsumer(
+  const firstConsumers = await sfu.createEgressConsumer(
     [{ peerA: ["producer-1"] }],
     ["transport-target"],
     {} as never,
   );
-  await sfu.createEgressConsumer(
+  const secondConsumers = await sfu.createEgressConsumer(
     [{ peerA: ["producer-1"] }],
     ["transport-target"],
     {} as never,
@@ -418,4 +418,6 @@ test("sfu: createEgressConsumer pipes producers into the consumer transport rout
   assert.deepEqual(pipeCalls, [
     { producerId: "producer-1", targetRouterId: "router-target" },
   ]);
+  assert.equal(firstConsumers["transport-target"]?.length, 1);
+  assert.deepEqual(secondConsumers, {});
 });
