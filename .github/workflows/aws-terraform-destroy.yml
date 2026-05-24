@@ -2,6 +2,7 @@ name: AWS Terraform Destroy
 
 on:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,11 +34,6 @@ jobs:
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.5.7
-
-      - name: Verify AWS secrets
-        run: |
-          test -n "${AWS_ACCESS_KEY_ID}" || { echo "Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
-          test -n "${AWS_SECRET_ACCESS_KEY}" || { echo "Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
 
       - name: Verify S3 backend settings
         run: |
