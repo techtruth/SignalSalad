@@ -48,7 +48,7 @@ jobs:
       TF_VAR_ecr_namespace: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
       TF_VAR_paypal_client_id: ${{ secrets.PAYPAL_CLIENT_ID }}
       TF_VAR_paypal_client_secret: ${{ secrets.PAYPAL_CLIENT_SECRET }}
-      TF_VAR_paypal_environment: live
+      TF_VAR_paypal_environment: ${{ inputs.deploy_environment == 'production' && 'live' || 'sandbox' }}
       TF_STATE_S3_BUCKET: mediasalad-demo
       TF_STATE_AWS_REGION: us-east-1
       TF_STATE_DYNAMODB_TABLE: mediasalad
