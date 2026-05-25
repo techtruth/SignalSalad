@@ -3,6 +3,11 @@ name: AWS Webapp CDN Publish
 on:
   workflow_call:
     inputs:
+      deploy_environment:
+        description: GitHub Environment to use for deployment
+        required: false
+        type: string
+        default: development
       webapp_assets_bucket:
         description: "S3 bucket name for webapp assets"
         required: false
@@ -25,6 +30,7 @@ jobs:
   deploy-webapp-cdn:
     name: Build and Publish Webapp to S3/CDN
     runs-on: ubuntu-latest
+    environment: ${{ inputs.deploy_environment }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -35,12 +41,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify AWS secrets
-        run: |
-          test -n "${AWS_ACCESS_KEY_ID}" || { echo "Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
-          test -n "${AWS_SECRET_ACCESS_KEY}" || { echo "Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+        uses: actions/checkout@v6
 
       - name: Verify webapp deploy secrets
         run: |

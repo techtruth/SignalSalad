@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # Quick helper for local AWS deploy iteration:
-# 1) Build and push signaling/media images to ECR
+# 1) Build and push signaling/media/bot-worker images to ECR
 # 2) Force ECS services to pull latest tags
+# 3) Refresh bot-worker Lambda image reference
 
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="$(cd "${INFRA_DIR}/../.." && pwd)"
@@ -14,21 +15,39 @@ TF_OUTPUT_JSON="$(terraform output -json)"
 
 SIGNALING_REPO="$(jq -r '.ecr_repositories.value.signaling' <<<"$TF_OUTPUT_JSON")"
 MEDIA_REPO="$(jq -r '.ecr_repositories.value.media' <<<"$TF_OUTPUT_JSON")"
+BOT_WORKER_REPO="$(jq -r '.ecr_repositories.value["bot-worker"]' <<<"$TF_OUTPUT_JSON")"
 ECR_REGISTRY_DOMAIN="$(jq -r '.ecr_registry_domain.value' <<<"$TF_OUTPUT_JSON")"
 AWS_ECR_REGION="${AWS_ECR_REGION:-$(cut -d'.' -f4 <<<"$ECR_REGISTRY_DOMAIN")}" 
 
 SIGNALING_IMAGE="${SIGNALING_REPO}:latest"
 MEDIA_IMAGE="${MEDIA_REPO}:latest"
+BOT_WORKER_IMAGE="${BOT_WORKER_REPO}:latest"
 
 # Build and push local images.
 "$DOCKER_CMD" build -f "${ROOT_DIR}/containerization/Dockerfile.signaling" -t "$SIGNALING_IMAGE" "$ROOT_DIR"
 "$DOCKER_CMD" build -f "${ROOT_DIR}/containerization/Dockerfile.media" -t "$MEDIA_IMAGE" "$ROOT_DIR"
+"$DOCKER_CMD" build -f "${ROOT_DIR}/containerization/Dockerfile.bot.lambda" -t "$BOT_WORKER_IMAGE" "$ROOT_DIR"
 
 ECR_PASSWORD="$(aws ecr get-login-password --region "${AWS_ECR_REGION}")"
 printf '%s' "$ECR_PASSWORD" | "$DOCKER_CMD" login --username AWS --password-stdin "${ECR_REGISTRY_DOMAIN}"
 
 "$DOCKER_CMD" push "$SIGNALING_IMAGE"
 "$DOCKER_CMD" push "$MEDIA_IMAGE"
+"$DOCKER_CMD" push "$BOT_WORKER_IMAGE"
+
+BOT_WORKER_LAMBDA_ARN="$(jq -r '.demo_bot_worker_lambda_arn.value // empty' <<<"$TF_OUTPUT_JSON")"
+if [[ -n "$BOT_WORKER_LAMBDA_ARN" ]]; then
+  BOT_WORKER_REGION="$(cut -d':' -f4 <<<"$BOT_WORKER_LAMBDA_ARN")"
+  if aws lambda get-function --function-name "$BOT_WORKER_LAMBDA_ARN" --region "$BOT_WORKER_REGION" >/dev/null 2>&1; then
+    aws lambda update-function-code \
+      --function-name "$BOT_WORKER_LAMBDA_ARN" \
+      --image-uri "$BOT_WORKER_IMAGE" \
+      --region "$BOT_WORKER_REGION" >/dev/null
+    echo "Updated bot worker Lambda image: ${BOT_WORKER_LAMBDA_ARN}"
+  else
+    echo "Bot worker Lambda not found; skipped Lambda image update (${BOT_WORKER_LAMBDA_ARN})"
+  fi
+fi
 
 force_deploy_service() {
   local cluster="$1"

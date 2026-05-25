@@ -1,5 +1,5 @@
 locals {
-  ecr_repo_names = toset(["webapp", "signaling", "media"])
+  ecr_repo_names = toset(["webapp", "signaling", "media", "bot-worker"])
 }
 
 resource "aws_ecr_repository" "repos" {

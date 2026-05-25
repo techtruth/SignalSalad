@@ -411,24 +411,22 @@ export class PeerMediaSession {
         continue;
       }
 
-      const consumerPeerData = this.context.peerState.requireMediaPeer(
-        consumerPeerId,
-        "createConsumerPayload",
-      );
-      assertPeerInRoom({
-        peer: consumerPeerData,
-        expectedRoom: room,
-        context: "signaling.createConsumerPayload",
-        expectedRoomState: "joined",
-        expectedMediaState: "ready",
-        reason: "consumer peer room does not match producer room",
-        details: [`producerPeerId=${producerPeer.id}`],
-      });
+      const candidatePeer = this.context.peers.get(consumerPeerId);
+      if (!candidatePeer) {
+        continue;
+      }
+      if (candidatePeer.roomState !== "joined" || candidatePeer.room !== room) {
+        continue;
+      }
+      if (candidatePeer.mediaState !== "ready") {
+        continue;
+      }
+      const consumerPeerData = candidatePeer as MediaReadyPeer;
 
-      const consumerTransportId = requireValue(
-        consumerPeerData.transportEgress[egressId],
-        `Missing consumer egress transport for peer ${consumerPeerId} on ${egressId}`,
-      );
+      const consumerTransportId = consumerPeerData.transportEgress[egressId];
+      if (!consumerTransportId) {
+        continue;
+      }
       const producerIds = [{ [producerPeer.id]: [producerId as Guid] }];
       messages.push(
         buildCreateConsumerMessage({

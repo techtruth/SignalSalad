@@ -142,3 +142,11 @@ output "demo_control_start_url" {
 output "demo_control_status_url" {
   value = "https://${aws_cloudfront_distribution.webapp.domain_name}/demo/status"
 }
+
+output "demo_bot_worker_lambda_arn" {
+  value = local.demo_bot_worker_function_arn
+}
+
+output "demo_launch_state_table_name" {
+  value = aws_dynamodb_table.demo_launch_state.name
+}

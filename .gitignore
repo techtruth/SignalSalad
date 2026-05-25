@@ -56,5 +56,6 @@ infrastructure/providers/**/.tencent.env
 infrastructure/providers/**/screen-logs
 
 # Local noise
+bot/logs/
 **/*.log
 **/.DS_Store

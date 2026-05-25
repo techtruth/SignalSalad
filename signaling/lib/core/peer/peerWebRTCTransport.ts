@@ -340,11 +340,29 @@ export class PeerWebRTCTransport {
       | MediaInboundMessageMap["createdWebRTCIngressTransport"]
       | MediaInboundMessageMap["createdWebRTCEgressTransport"];
     transportDetailsStore: Map<Guid, WebRTCTransportDetails>;
-  }) {
-    const peerId = this.context.peerState.requirePeerIdByOrigin(
-      params.message.originId,
-      params.context,
-    );
+  }):
+    | {
+        peerId: Guid;
+        details: ReturnType<typeof buildTransportDetailsMessage>;
+      }
+    | undefined {
+    const peerId = this.context.sessions.getPeerIdByOrigin(params.message.originId);
+    if (!peerId) {
+      this.context.recordDiagnostic({
+        severity: "warn",
+        category: "transportLifecycle",
+        message:
+          "dropping stale createdWebRTC transport callback because origin mapping no longer exists",
+        details: `originId=${params.message.originId}, direction=${params.direction}`,
+        context: {
+          originId: params.message.originId,
+          direction: params.direction,
+          serverId: params.serverId,
+          transportId: params.message.transportId,
+        },
+      });
+      return undefined;
+    }
     const attached = this.context.sessions.attachTransport(
       peerId,
       params.serverId as Guid,
@@ -352,21 +370,20 @@ export class PeerWebRTCTransport {
       params.direction,
     );
     if (!attached) {
-      const peer = this.context.peerState.requirePeer(peerId, params.context);
-      const directionLabel =
-        params.direction === "ingress" ? "ingress" : "egress";
-      throw new PeerStateError(
-        buildPeerFailure({
-          context: `signaling.${params.context}`,
-          peer,
-          expectedRoomState: "joined",
-          reason: `failed to attach ${directionLabel} transport mapping after media response`,
-          details: [
-            `${directionLabel}Id=${params.serverId}`,
-            `transportId=${params.message.transportId}`,
-          ],
-        }),
-      );
+      this.context.recordDiagnostic({
+        severity: "warn",
+        category: "transportLifecycle",
+        message:
+          "dropping createdWebRTC transport callback because peer transport mapping is no longer attachable",
+        details: `peerId=${peerId}, direction=${params.direction}`,
+        context: {
+          peerId,
+          direction: params.direction,
+          serverId: params.serverId,
+          transportId: params.message.transportId,
+        },
+      });
+      return undefined;
     }
 
     const transportDetails: WebRTCTransportDetails = {
@@ -394,13 +411,17 @@ export class PeerWebRTCTransport {
     ingressId: Guid,
     message: MediaInboundMessageMap["createdWebRTCIngressTransport"],
   ) {
-    const { details } = this.handleCreatedWebRTCTransport({
+    const created = this.handleCreatedWebRTCTransport({
       serverId: ingressId,
       direction: "ingress",
       context: "createdWebRTCIngressTransport",
       message,
       transportDetailsStore: this.context.ingressTransportDetails,
     });
+    if (!created) {
+      return;
+    }
+    const { details } = created;
     try {
       this.context.signalingMessenger.sendWebsocketMessage(
         message.originId,
@@ -425,13 +446,17 @@ export class PeerWebRTCTransport {
     egressId: Guid,
     message: MediaInboundMessageMap["createdWebRTCEgressTransport"],
   ) {
-    const { peerId, details } = this.handleCreatedWebRTCTransport({
+    const created = this.handleCreatedWebRTCTransport({
       serverId: egressId,
       direction: "egress",
       context: "createdWebRTCEgressTransport",
       message,
       transportDetailsStore: this.context.egressTransportDetails,
     });
+    if (!created) {
+      return;
+    }
+    const { peerId, details } = created;
     try {
       this.context.signalingMessenger.sendWebsocketMessage(
         message.originId,

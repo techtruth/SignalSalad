@@ -88,6 +88,31 @@ export const resolveMediaWorkerCount = (
   return Math.max(1, cpuCount - omitCpus);
 };
 
+/**
+ * Resolves final worker count with optional explicit override.
+ *
+ * @param params - Worker sizing inputs.
+ * @returns Worker count clamped to at least `1`.
+ * @throws {Error} When explicit count is not a positive integer.
+ */
+export const resolveConfiguredMediaWorkerCount = (params: {
+  availableCpus: number;
+  omitCpusValue: string | undefined;
+  explicitCountValue: string | undefined;
+}) => {
+  const explicit = params.explicitCountValue;
+  if (typeof explicit === "string" && explicit.trim().length > 0) {
+    const parsed = Number(explicit);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(
+        `Invalid MEDIA_WORKER_COUNT value '${explicit}'. Expected a positive integer.`,
+      );
+    }
+    return parsed;
+  }
+  return resolveMediaWorkerCount(params.availableCpus, params.omitCpusValue);
+};
+
 const extractWorkerCpuUsageTotal = (usage: unknown) => {
   if (!usage || typeof usage !== "object") {
     return Number.POSITIVE_INFINITY;
@@ -282,10 +307,11 @@ export class SFU {
         `Invalid RTC port range (RTC_MIN_PORT=${rtcMinPortEnv}, RTC_MAX_PORT=${rtcMaxPortEnv})`,
       );
     }
-    const workerCount = resolveMediaWorkerCount(
-      os.cpus().length,
-      process.env.MEDIA_WORKER_OMIT_CPUS,
-    );
+    const workerCount = resolveConfiguredMediaWorkerCount({
+      availableCpus: os.cpus().length,
+      omitCpusValue: process.env.MEDIA_WORKER_OMIT_CPUS,
+      explicitCountValue: process.env.MEDIA_WORKER_COUNT,
+    });
     const listenInfos = this.resolveWebRtcListenInfos();
     for (let i = 0; i < workerCount; i++) {
       this.workers[i] = await createWorker({
@@ -1283,11 +1309,21 @@ export class SFU {
       resolvedConsumerTransports.push({ transportConsumerId, transport });
     }
 
+    const seenConsumerPairs = new Set<string>();
     for (const { producerPeerId, producerId } of producerEntries) {
       for (const {
         transportConsumerId,
         transport,
       } of resolvedConsumerTransports) {
+        const consumerPairKey = this.buildConsumerRelayKey(
+          transportConsumerId,
+          producerId,
+        );
+        if (seenConsumerPairs.has(consumerPairKey)) {
+          continue;
+        }
+        seenConsumerPairs.add(consumerPairKey);
+
         await this.ensureProducerVisibleOnTransportRouter(
           producerId,
           transportConsumerId,
@@ -1300,6 +1336,9 @@ export class SFU {
             rtpCapabilities,
           });
           this.trackConsumer(transportConsumerId, producerId, consumer);
+        } else {
+          // Idempotent no-op: do not re-announce an existing consumer.
+          continue;
         }
 
         if (!consumersCreated[transportConsumerId]) {

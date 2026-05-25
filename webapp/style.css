@@ -104,6 +104,95 @@ body {
   cursor: wait;
 }
 
+.cost-advisory-toggle-row {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cost-advisory-checkbox {
+  width: 16px;
+  height: 16px;
+}
+
+.cost-advisory-bot-count {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.cost-advisory-bot-count-input {
+  width: 80px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+.cost-advisory-bot-region {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.cost-advisory-bot-region-select {
+  min-width: 180px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.cost-advisory-payment {
+  align-self: stretch;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cost-advisory-payment-copy {
+  font-size: 13px;
+  color: #334155;
+}
+
+.cost-advisory-payment-status {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.cost-advisory-payment-action {
+  align-self: center;
+  border: 1px solid #0f766e;
+  background: #14b8a6;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cost-advisory-payment-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .cost-advisory-donate-copy {
   margin-top: 6px;
 }

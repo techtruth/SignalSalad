@@ -615,11 +615,15 @@ export const requirePeerIdByOrigin = (params: {
   sessions: PeerStateSessionsPort;
   originId: Guid;
   context: string;
-}): Guid =>
-  requireValue(
-    params.sessions.getPeerIdByOrigin(params.originId),
-    `Missing peer mapping for origin ${params.originId} on ${params.context}`,
-  );
+}): Guid => {
+  const peerId = params.sessions.getPeerIdByOrigin(params.originId);
+  if (!peerId) {
+    throw new PeerStateError(
+      `Missing peer mapping for origin ${params.originId} on ${params.context}`,
+    );
+  }
+  return peerId;
+};
 
 /**
  * Resolves media-ready peer from a websocket origin/transport id.
