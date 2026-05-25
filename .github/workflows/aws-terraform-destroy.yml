@@ -2,9 +2,6 @@ name: AWS Terraform Destroy
 
 on:
   workflow_call:
-<<<<<<< HEAD
-  workflow_dispatch:
-=======
     inputs:
       deploy_environment:
         description: GitHub Environment to use for deployment
@@ -21,7 +18,6 @@ on:
         options:
           - development
           - production
->>>>>>> bot-test
 
 permissions:
   contents: read
