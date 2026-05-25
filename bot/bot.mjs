@@ -6,7 +6,26 @@ const env = process.env;
 const hostname = env.HOSTNAME || "bot";
 const logDir = env.BOT_LOG_DIR || "/bot/logs";
 const appUrlBase = env.BOT_APP_URL || "https://signaling.local:8443";
-const appUrl = `${appUrlBase.replace(/\/$/, "")}/?demoModal=0`;
+const configuredRegion = (env.BOT_REGION || "").trim();
+const buildAppUrl = () => {
+  try {
+    const url = new URL(appUrlBase);
+    url.pathname = url.pathname.replace(/\/?$/, "/");
+    url.searchParams.set("demoModal", "0");
+    if (configuredRegion.length > 0) {
+      url.searchParams.set("region", configuredRegion);
+    }
+    return url.toString();
+  } catch {
+    const base = appUrlBase.replace(/\/$/, "");
+    const regionQuery =
+      configuredRegion.length > 0
+        ? `&region=${encodeURIComponent(configuredRegion)}`
+        : "";
+    return `${base}/?demoModal=0${regionQuery}`;
+  }
+};
+const appUrl = buildAppUrl();
 const slowStartMs = Number.parseInt(env.BOT_START_DELAY_MS || "0", 10);
 const roomEgressReadyTimeoutMs = Number.parseInt(
   env.BOT_ROOM_EGRESS_READY_TIMEOUT_MS || "90000",
@@ -36,6 +55,40 @@ const parsePositiveInteger = (value) => {
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseBooleanEnv = (value, fallback = false) => {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+};
+
+const resolveChromiumExecutablePath = () => {
+  const candidates = [
+    env.PUPPETEER_EXECUTABLE_PATH,
+    "/usr/lib/chromium/chromium",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+  ].filter((candidate) => typeof candidate === "string" && candidate.trim().length > 0);
+
+  for (const candidate of candidates) {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  return env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium";
+};
 
 const acquireFileLock = async (lockPath) => {
   const lockWaitTimeoutMs = 30000;
@@ -135,6 +188,10 @@ const { botIndex, source: botIndexSource } = await resolveBotIdentity();
 const roomPrefix = (env.BOT_ROOM_PREFIX || "").trim();
 const explicitRoom = (env.BOT_ROOM || "").trim();
 const room = explicitRoom || (roomPrefix ? `${roomPrefix}-${botIndex}` : "demo");
+const puppeteerDumpio = parseBooleanEnv(env.PUPPETEER_DUMPIO, true);
+const chromiumStderrLogging = parseBooleanEnv(env.PUPPETEER_CHROMIUM_STDERR, true);
+const chromiumExecutablePath = resolveChromiumExecutablePath();
+const chromiumUserDataDir = `/tmp/chromium-user-data-${process.pid}-${Date.now()}`;
 
 const runId = new Date().toISOString().replace(/[:.]/g, "-");
 const safeHostname = hostname.replace(/[^a-zA-Z0-9_.-]/g, "_");
@@ -171,6 +228,7 @@ const writeLog = (level, event, details = {}) => {
       index: botIndex,
       hostname,
       room,
+      region: configuredRegion || undefined,
       appUrl,
       pid: process.pid,
     },
@@ -530,21 +588,34 @@ try {
   }
 
   browser = await puppeteer.launch({
-    executablePath: env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
+    executablePath: chromiumExecutablePath,
     headless: true,
+    dumpio: puppeteerDumpio,
+    timeout: Number.parseInt(env.PUPPETEER_LAUNCH_TIMEOUT_MS || "60000", 10),
     ignoreHTTPSErrors: true,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
+      "--no-zygote",
+      "--single-process",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
       "--ignore-certificate-errors",
       "--allow-insecure-localhost",
       "--autoplay-policy=no-user-gesture-required",
       "--use-fake-ui-for-media-stream",
       "--use-fake-device-for-media-stream",
       "--disable-dev-shm-usage",
+      `--user-data-dir=${chromiumUserDataDir}`,
+      ...(chromiumStderrLogging ? ["--enable-logging=stderr", "--v=1"] : []),
     ],
   });
-  writeLog("info", "browser_launched");
+  writeLog("info", "browser_launched", {
+    executablePath: chromiumExecutablePath,
+    userDataDir: chromiumUserDataDir,
+    dumpio: puppeteerDumpio,
+    chromiumStderrLogging,
+  });
 
   browser.on("disconnected", () => {
     writeLog(expectedBrowserDisconnect ? "info" : "error", "browser_disconnected");

@@ -18,7 +18,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: terraform-aws-deploy-${{ github.ref_name }}
@@ -28,9 +27,6 @@ jobs:
   deploy-aws:
     name: Deploy AWS Terraform
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: write
     outputs:
       webapp_assets_bucket: ${{ steps.tf_outputs.outputs.webapp_assets_bucket }}
       webapp_cdn_distribution_id: ${{ steps.tf_outputs.outputs.webapp_cdn_distribution_id }}
@@ -40,6 +36,9 @@ jobs:
       TF_IN_AUTOMATION: "true"
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_VAR_paypal_client_id: ${{ secrets.PAYPAL_CLIENT_ID }}
+      TF_VAR_paypal_client_secret: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+      TF_VAR_paypal_environment: sandbox
       TF_STATE_S3_BUCKET: mediasalad-demo
       TF_STATE_AWS_REGION: us-east-1
       TF_STATE_DYNAMODB_TABLE: mediasalad
@@ -56,14 +55,9 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      - name: Verify AWS secrets
+      - name: Verify S3 backend settings
         run: |
-          test -n "${AWS_ACCESS_KEY_ID}" || { echo "Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
-          test -n "${AWS_SECRET_ACCESS_KEY}" || { echo "Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
-
-      - name: Verify S3 backend secrets
-        run: |
-          test -n "${TF_STATE_S3_BUCKET}" || { echo "Missing secret: TF_STATE_S3_BUCKET"; exit 1; }
+          test -n "${TF_STATE_S3_BUCKET}" || { echo "Missing env: TF_STATE_S3_BUCKET"; exit 1; }
           test -n "${TF_STATE_AWS_REGION}" || { echo "Missing env: TF_STATE_AWS_REGION"; exit 1; }
           test -n "${TF_STATE_DYNAMODB_TABLE}" || { echo "Missing env: TF_STATE_DYNAMODB_TABLE"; exit 1; }
 

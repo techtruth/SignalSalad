@@ -35,12 +35,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify AWS secrets
-        run: |
-          test -n "${AWS_ACCESS_KEY_ID}" || { echo "Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
-          test -n "${AWS_SECRET_ACCESS_KEY}" || { echo "Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+        uses: actions/checkout@v6
 
       - name: Verify ECR repository secrets
         run: |

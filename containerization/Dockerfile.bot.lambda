@@ -1,0 +1,25 @@
+FROM node:lts-bookworm
+
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends \
+    chromium \
+    ca-certificates \
+    cmake \
+    build-essential && \
+  rm -rf /var/lib/apt/lists/*
+
+ENV LAMBDA_TASK_ROOT=/var/task
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+COPY ./bot/package*.json ./
+RUN npm ci && npm install --global aws-lambda-ric
+
+COPY ./bot/bot.mjs ./bot.mjs
+COPY ./bot/lambda-handler.mjs ./lambda-handler.mjs
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/lib/chromium/chromium
+ENV BOT_LOG_DIR=/tmp/bot-logs
+ENV HOME=/tmp
+
+ENTRYPOINT ["/usr/local/bin/npx", "aws-lambda-ric"]
+CMD ["lambda-handler.handler"]

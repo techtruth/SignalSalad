@@ -1,0 +1,244 @@
+name: AWS Bot Worker Deploy
+
+on:
+  workflow_call:
+    inputs:
+      bot_image_tag:
+        description: Bot worker image tag to deploy to Lambda
+        required: false
+        type: string
+        default: latest
+      build_and_push_image:
+        description: Build and push bot-worker image to ECR
+        required: false
+        type: boolean
+        default: true
+      deploy_lambda:
+        description: Create/update bot-worker Lambda from selected image tag
+        required: false
+        type: boolean
+        default: true
+      stack_name:
+        description: Stack name prefix used for Lambda/role naming
+        required: false
+        type: string
+        default: signalsalad
+      ecr_repository_name:
+        description: ECR repository name for bot-worker image
+        required: false
+        type: string
+        default: signalsalad/bot-worker
+  workflow_dispatch:
+    inputs:
+      bot_image_tag:
+        description: Bot worker image tag to deploy to Lambda
+        required: true
+        type: string
+        default: latest
+      build_and_push_image:
+        description: Build and push bot-worker image to ECR
+        required: true
+        type: boolean
+        default: true
+      deploy_lambda:
+        description: Create/update bot-worker Lambda from selected image tag
+        required: true
+        type: boolean
+        default: true
+      stack_name:
+        description: Stack name prefix used for Lambda/role naming
+        required: true
+        type: string
+        default: signalsalad
+      ecr_repository_name:
+        description: ECR repository name for bot-worker image
+        required: true
+        type: string
+        default: signalsalad/bot-worker
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_STATE_S3_BUCKET: mediasalad-demo
+  TF_STATE_AWS_REGION: us-east-1
+  TF_STATE_DYNAMODB_TABLE: mediasalad
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+concurrency:
+  group: aws-bot-worker-deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve_ecr:
+    name: Resolve Bot Worker ECR Repository
+    if: ${{ inputs.build_and_push_image || inputs.deploy_lambda }}
+    runs-on: ubuntu-latest
+    outputs:
+      repository_uri: ${{ steps.resolve.outputs.repository_uri }}
+      ecr_namespace: ${{ steps.resolve.outputs.ecr_namespace }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.5.7
+
+      - name: Resolve namespace and repository URI from Terraform state
+        id: resolve
+        working-directory: infrastructure/aws
+        run: |
+          test -n "${AWS_ECR_REPOSITORY_NAME}" || { echo "Missing input: ecr_repository_name"; exit 1; }
+
+          if [[ "${AWS_ECR_REPOSITORY_NAME##*/}" != "bot-worker" ]]; then
+            echo "ecr_repository_name must end with /bot-worker"
+            exit 1
+          fi
+
+          ECR_NAMESPACE="${AWS_ECR_REPOSITORY_NAME%/*}"
+          if [[ -z "${ECR_NAMESPACE}" || "${ECR_NAMESPACE}" == "${AWS_ECR_REPOSITORY_NAME}" ]]; then
+            echo "ecr_repository_name must include a namespace prefix (example: signalsalad/bot-worker)"
+            exit 1
+          fi
+
+          cat > backend.ci.tf <<'HCL'
+          terraform {
+            backend "s3" {}
+          }
+          HCL
+
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${TF_STATE_S3_BUCKET}" \
+            -backend-config="key=signalsalad/aws/terraform.tfstate" \
+            -backend-config="region=${TF_STATE_AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${TF_STATE_DYNAMODB_TABLE}" \
+            -backend-config="access_key=${AWS_ACCESS_KEY_ID}" \
+            -backend-config="secret_key=${AWS_SECRET_ACCESS_KEY}"
+
+          REPO_URI="$(terraform output -json ecr_repositories | jq -r '."bot-worker"')"
+          test -n "${REPO_URI}" || { echo "Terraform output ecr_repositories.bot-worker is empty"; exit 1; }
+
+          echo "repository_uri=${REPO_URI}" >> "${GITHUB_OUTPUT}"
+          echo "ecr_namespace=${ECR_NAMESPACE}" >> "${GITHUB_OUTPUT}"
+    env:
+      AWS_ECR_REPOSITORY_NAME: ${{ inputs.ecr_repository_name }}
+
+  build_image:
+    name: Build and Push Bot Worker Image
+    needs: resolve_ecr
+    if: >-
+      ${{
+        inputs.build_and_push_image &&
+        needs.resolve_ecr.result == 'success'
+      }}
+    runs-on: ubuntu-latest
+    env:
+      AWS_ECR_BOT_WORKER_REPOSITORY: ${{ needs.resolve_ecr.outputs.repository_uri }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to ECR
+        run: |
+          ECR_REGISTRY="$(echo "${AWS_ECR_BOT_WORKER_REPOSITORY}" | cut -d'/' -f1)"
+          AWS_ECR_REGION="$(echo "${ECR_REGISTRY}" | cut -d'.' -f4)"
+          test -n "${ECR_REGISTRY}" || { echo "Could not parse ECR registry"; exit 1; }
+          test -n "${AWS_ECR_REGION}" || { echo "Could not parse ECR region"; exit 1; }
+
+          aws ecr get-login-password --region "${AWS_ECR_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+
+      - name: Build and push bot-worker image
+        run: |
+          CUSTOM_TAG="${{ inputs.bot_image_tag }}"
+
+          docker build \
+            -f containerization/Dockerfile.bot.lambda \
+            -t "${AWS_ECR_BOT_WORKER_REPOSITORY}:latest" \
+            -t "${AWS_ECR_BOT_WORKER_REPOSITORY}:${GITHUB_SHA}" \
+            .
+
+          docker push "${AWS_ECR_BOT_WORKER_REPOSITORY}:latest"
+          docker push "${AWS_ECR_BOT_WORKER_REPOSITORY}:${GITHUB_SHA}"
+
+          if [[ "${CUSTOM_TAG}" != "latest" && "${CUSTOM_TAG}" != "${GITHUB_SHA}" ]]; then
+            docker tag "${AWS_ECR_BOT_WORKER_REPOSITORY}:${GITHUB_SHA}" "${AWS_ECR_BOT_WORKER_REPOSITORY}:${CUSTOM_TAG}"
+            docker push "${AWS_ECR_BOT_WORKER_REPOSITORY}:${CUSTOM_TAG}"
+          fi
+
+  deploy_lambda:
+    name: Deploy Bot Worker Lambda
+    needs:
+      - resolve_ecr
+      - build_image
+    if: >-
+      ${{
+        inputs.deploy_lambda &&
+        needs.resolve_ecr.result == 'success' &&
+        (needs.build_image.result == 'success' || needs.build_image.result == 'skipped')
+      }}
+    runs-on: ubuntu-latest
+    env:
+      STACK_NAME: ${{ inputs.stack_name }}
+      ECR_NAMESPACE: ${{ needs.resolve_ecr.outputs.ecr_namespace }}
+      BOT_IMAGE_TAG: ${{ inputs.bot_image_tag }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init (S3 backend)
+        working-directory: infrastructure/aws
+        run: |
+          cat > backend.ci.tf <<'HCL'
+          terraform {
+            backend "s3" {}
+          }
+          HCL
+
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${TF_STATE_S3_BUCKET}" \
+            -backend-config="key=signalsalad/aws/terraform.tfstate" \
+            -backend-config="region=${TF_STATE_AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${TF_STATE_DYNAMODB_TABLE}" \
+            -backend-config="access_key=${AWS_ACCESS_KEY_ID}" \
+            -backend-config="secret_key=${AWS_SECRET_ACCESS_KEY}"
+
+      - name: Apply bot-worker Terraform resources
+        working-directory: infrastructure/aws
+        run: |
+          terraform apply \
+            -input=false \
+            -lock-timeout=10m \
+            -auto-approve \
+            -target=aws_iam_role.demo_bot_worker_lambda \
+            -target=aws_iam_role_policy.demo_bot_worker_lambda \
+            -target=aws_lambda_function.demo_bot_worker \
+            -target=aws_lambda_function_event_invoke_config.demo_bot_worker \
+            -var="stack_name=${STACK_NAME}" \
+            -var="ecr_namespace=${ECR_NAMESPACE}" \
+            -var="enable_demo_bot_worker=true" \
+            -var="demo_bot_worker_image_tag=${BOT_IMAGE_TAG}"
+
+      - name: Capture deployed bot-worker ARN
+        working-directory: infrastructure/aws
+        run: |
+          echo "Bot worker ARN: $(terraform output -raw demo_bot_worker_lambda_arn)"

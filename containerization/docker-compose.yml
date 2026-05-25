@@ -231,6 +231,7 @@ services:
       - ../bot/logs:/bot/logs
     environment:
       BOT_APP_URL: ${BOT_APP_URL:-https://signaling.local:8443}
+      BOT_REGION: ${BOT_REGION:-}
       BOT_ROOM: ${BOT_ROOM:-}
       BOT_ROOM_PREFIX: ${BOT_ROOM_PREFIX:-}
       BOT_INDEX: ${BOT_INDEX:-}

@@ -84,6 +84,91 @@ variable "demo_server_warm_minutes" {
   default     = 15
 }
 
+variable "demo_bot_default_count" {
+  description = "Default number of bots to request when launchBots is enabled"
+  type        = number
+  default     = 20
+}
+
+variable "demo_bot_max_count" {
+  description = "Maximum number of bots accepted by demo launcher request"
+  type        = number
+  default     = 50
+}
+
+variable "enable_demo_bot_worker" {
+  description = "Whether Terraform should manage the demo bot worker Lambda resources"
+  type        = bool
+  default     = false
+}
+
+variable "demo_bot_worker_image_tag" {
+  description = "Container image tag for the demo bot worker Lambda image"
+  type        = string
+  default     = "latest"
+}
+
+variable "demo_bot_worker_timeout_seconds" {
+  description = "Timeout for each demo bot worker Lambda invocation"
+  type        = number
+  default     = 900
+}
+
+variable "demo_bot_worker_memory_mb" {
+  description = "Memory size (MB) for demo bot worker Lambda"
+  type        = number
+  default     = 2048
+}
+
+variable "demo_bot_worker_ephemeral_storage_mb" {
+  description = "Ephemeral /tmp storage (MB) for demo bot worker Lambda"
+  type        = number
+  default     = 2048
+}
+
+variable "demo_bot_room_egress_ready_timeout_ms" {
+  description = "Timeout in ms for bot wait on roomEgressReady"
+  type        = number
+  default     = 90000
+}
+
+variable "demo_bot_media_enable_timeout_ms" {
+  description = "Timeout in ms for bot wait on media enable after toggle"
+  type        = number
+  default     = 90000
+}
+
+variable "paypal_client_id" {
+  description = "PayPal REST app client ID for demo payment verification"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "paypal_client_secret" {
+  description = "PayPal REST app client secret for demo payment verification"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "paypal_environment" {
+  description = "PayPal API environment: sandbox or live"
+  type        = string
+  default     = "sandbox"
+
+  validation {
+    condition     = contains(["sandbox", "live"], var.paypal_environment)
+    error_message = "paypal_environment must be either sandbox or live."
+  }
+}
+
+variable "paypal_bot_unit_price_usd" {
+  description = "USD unit price per bot for PayPal checkout"
+  type        = string
+  default     = "1.00"
+}
+
 variable "ecr_namespace" {
   description = "ECR repository namespace prefix"
   type        = string

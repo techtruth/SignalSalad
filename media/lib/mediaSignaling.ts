@@ -55,6 +55,7 @@ import lps from "length-prefixed-stream";
 
 const resolveRegion = () => process.env.REGION || "local";
 const DEFAULT_MEDIA_SIGNALING_QUEUE_LIMIT = 1024;
+const DEFAULT_MEDIA_SIGNALING_OUTBOUND_BACKLOG_LIMIT = 1024;
 
 const resolveQueueLimit = (value: string | undefined) => {
   if (!value || value.trim().length === 0) {
@@ -91,6 +92,10 @@ export class MediaSignaling {
     { originId: string; direction: "ingress" | "egress" }
   >;
   instructionQueueLimit: number;
+  outboundPendingWrites: Buffer[];
+  outboundBackpressured: boolean;
+  outboundBacklogLimit: number;
+  outboundDroppedWrites: number;
   private fatalExitScheduled: boolean;
   private shutdownInitiated: boolean;
 
@@ -114,6 +119,10 @@ export class MediaSignaling {
     this.instructionQueueLimit = resolveQueueLimit(
       process.env.MEDIA_SIGNALING_QUEUE_LIMIT,
     );
+    this.outboundPendingWrites = new Array<Buffer>();
+    this.outboundBackpressured = false;
+    this.outboundBacklogLimit = DEFAULT_MEDIA_SIGNALING_OUTBOUND_BACKLOG_LIMIT;
+    this.outboundDroppedWrites = 0;
     this.fatalExitScheduled = false;
     this.shutdownInitiated = false;
     console.log(
@@ -154,6 +163,9 @@ export class MediaSignaling {
 
     encoder.on("error", (error: Error) => {
       this.handleFatalError("Signaling relay encode error", error);
+    });
+    encoder.on("drain", () => {
+      this.flushPendingOutboundWrites();
     });
 
     this.clientSocket.on("end", () => {
@@ -215,6 +227,9 @@ export class MediaSignaling {
       this.instructionQueue.clear();
       this.producerOrigins.clear();
       this.transportOrigins.clear();
+      this.outboundPendingWrites = new Array<Buffer>();
+      this.outboundBackpressured = false;
+      this.outboundDroppedWrites = 0;
       this.stopLoadReporting();
     }
   }
@@ -434,6 +449,78 @@ export class MediaSignaling {
 
   // Outbound payload helpers -----------------------------------------------
 
+  private queuePendingOutboundWrite(encodedReply: Buffer, payloadType: string) {
+    if (this.outboundPendingWrites.length >= this.outboundBacklogLimit) {
+      this.outboundDroppedWrites += 1;
+      console.warn(
+        "Dropping outbound netsocket payload due to sustained backpressure",
+        {
+          payloadType,
+          queueDepth: this.outboundPendingWrites.length,
+          backlogLimit: this.outboundBacklogLimit,
+          droppedTotal: this.outboundDroppedWrites,
+        },
+      );
+      return;
+    }
+    this.outboundPendingWrites.push(encodedReply);
+    const queueDepth = this.outboundPendingWrites.length;
+    if (
+      queueDepth === 1 ||
+      queueDepth === this.outboundBacklogLimit ||
+      queueDepth % 64 === 0
+    ) {
+      console.warn("Queued outbound netsocket payload due to backpressure", {
+        payloadType,
+        queueDepth,
+        backlogLimit: this.outboundBacklogLimit,
+        droppedTotal: this.outboundDroppedWrites,
+      });
+    }
+  }
+
+  private flushPendingOutboundWrites() {
+    if (!this.encoder) {
+      return;
+    }
+    if (this.outboundPendingWrites.length === 0) {
+      this.outboundBackpressured = false;
+      return;
+    }
+
+    while (this.outboundPendingWrites.length > 0) {
+      const nextPayload = this.outboundPendingWrites[0];
+      try {
+        const didBufferAcceptWrite = this.encoder.write(nextPayload);
+        if (!didBufferAcceptWrite) {
+          this.outboundBackpressured = true;
+          console.warn("Netsocket encoder still backpressured while flushing", {
+            queueDepth: this.outboundPendingWrites.length,
+            backlogLimit: this.outboundBacklogLimit,
+            droppedTotal: this.outboundDroppedWrites,
+          });
+          return;
+        }
+      } catch (error) {
+        this.handleFatalError(
+          "Failed to write buffered netsocket payload while flushing",
+          error,
+        );
+        return;
+      }
+      this.outboundPendingWrites.shift();
+    }
+
+    const droppedTotal = this.outboundDroppedWrites;
+    this.outboundBackpressured = false;
+    this.outboundDroppedWrites = 0;
+    console.warn("Netsocket backpressure cleared; flushed outbound backlog", {
+      queueDepth: this.outboundPendingWrites.length,
+      backlogLimit: this.outboundBacklogLimit,
+      droppedTotal,
+    });
+  }
+
   private sendPayload(payload: ResponseSignalWrapper["payload"]) {
     if (!this.encoder) {
       const missingEncoderError = new Error(
@@ -454,15 +541,22 @@ export class MediaSignaling {
       node: this.registrationId,
       payload,
     };
+    const encodedReply = Buffer.from(JSON.stringify(reply));
+
+    if (this.outboundBackpressured || this.outboundPendingWrites.length > 0) {
+      this.queuePendingOutboundWrite(encodedReply, String(payload.type));
+      return;
+    }
+
     try {
-      const didBufferAcceptWrite = this.encoder.write(
-        Buffer.from(JSON.stringify(reply)),
-      );
+      const didBufferAcceptWrite = this.encoder.write(encodedReply);
       if (!didBufferAcceptWrite) {
-        this.handleFatalError(
-          "Failed to write netsocket payload: encoder backpressure",
-          new Error("encoder backpressure"),
-        );
+        this.outboundBackpressured = true;
+        console.warn("Netsocket encoder backpressure detected", {
+          payloadType: String(payload.type),
+          backlogLimit: this.outboundBacklogLimit,
+          queueDepth: this.outboundPendingWrites.length,
+        });
       }
     } catch (error) {
       this.handleFatalError("Failed to write netsocket payload", error);
