@@ -1,13 +1,16 @@
 name: AWS Deploy
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - aws-full-deploy
   workflow_dispatch:
     inputs:
+      deploy_environment:
+        description: Target deployment environment
+        required: true
+        type: choice
+        default: development
+        options:
+          - development
+          - production
       run_terraform_deploy:
         description: Run Terraform apply
         required: true
@@ -44,8 +47,10 @@ concurrency:
 jobs:
   terraform_deploy:
     name: Provision AWS Infrastructure
-    if: ${{ github.event_name == 'push' || inputs.run_terraform_deploy }}
+    if: ${{ inputs.run_terraform_deploy }}
     uses: ./.github/workflows/aws-terraform-provision.yml
+    with:
+      deploy_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_environment || (github.ref_name == 'production' && 'production' || 'development') }}
     secrets: inherit
 
   docker_images:
@@ -53,11 +58,12 @@ jobs:
     needs: terraform_deploy
     if: >-
       ${{
-        (github.event_name == 'push' || inputs.run_docker_deploy) &&
+        inputs.run_docker_deploy &&
         (needs.terraform_deploy.result == 'success' || needs.terraform_deploy.result == 'skipped')
       }}
     uses: ./.github/workflows/aws-docker-ecr-publish.yml
     with:
+      deploy_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_environment || (github.ref_name == 'production' && 'production' || 'development') }}
       ecr_signaling_repository: ${{ needs.terraform_deploy.result == 'success' && needs.terraform_deploy.outputs.ecr_signaling_repository || '' }}
       ecr_media_repository: ${{ needs.terraform_deploy.result == 'success' && needs.terraform_deploy.outputs.ecr_media_repository || '' }}
     secrets: inherit
@@ -69,12 +75,13 @@ jobs:
       - docker_images
     if: >-
       ${{
-        (github.event_name == 'push' || inputs.run_webapp_deploy) &&
+        inputs.run_webapp_deploy &&
         (needs.terraform_deploy.result == 'success' || needs.terraform_deploy.result == 'skipped') &&
         (needs.docker_images.result == 'success' || needs.docker_images.result == 'skipped')
       }}
     uses: ./.github/workflows/aws-webapp-cdn-publish.yml
     with:
+      deploy_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_environment || (github.ref_name == 'production' && 'production' || 'development') }}
       webapp_assets_bucket: ${{ needs.terraform_deploy.result == 'success' && needs.terraform_deploy.outputs.webapp_assets_bucket || '' }}
       webapp_cdn_distribution_id: ${{ needs.terraform_deploy.result == 'success' && needs.terraform_deploy.outputs.webapp_cdn_distribution_id || '' }}
     secrets: inherit
@@ -92,6 +99,8 @@ jobs:
         (needs.docker_images.result == 'success' || needs.docker_images.result == 'skipped')
       }}
     uses: ./.github/workflows/aws-bot-worker-deploy.yml
+    with:
+      deploy_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_environment || (github.ref_name == 'production' && 'production' || 'development') }}
     secrets: inherit
 
   terraform_destroy:
@@ -109,4 +118,6 @@ jobs:
         (needs.webapp.result == 'success' || needs.webapp.result == 'skipped')
       }}
     uses: ./.github/workflows/aws-terraform-destroy.yml
+    with:
+      deploy_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_environment || (github.ref_name == 'production' && 'production' || 'development') }}
     secrets: inherit

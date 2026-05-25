@@ -155,7 +155,7 @@ variable "paypal_client_secret" {
 variable "paypal_environment" {
   description = "PayPal API environment: sandbox or live"
   type        = string
-  default     = "sandbox"
+  default     = "live"
 
   validation {
     condition     = contains(["sandbox", "live"], var.paypal_environment)

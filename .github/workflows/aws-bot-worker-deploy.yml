@@ -3,6 +3,11 @@ name: AWS Bot Worker Deploy
 on:
   workflow_call:
     inputs:
+      deploy_environment:
+        description: GitHub Environment to use for deployment
+        required: false
+        type: string
+        default: development
       bot_image_tag:
         description: Bot worker image tag to deploy to Lambda
         required: false
@@ -18,18 +23,16 @@ on:
         required: false
         type: boolean
         default: true
-      stack_name:
-        description: Stack name prefix used for Lambda/role naming
-        required: false
-        type: string
-        default: signalsalad
-      ecr_repository_name:
-        description: ECR repository name for bot-worker image
-        required: false
-        type: string
-        default: signalsalad/bot-worker
   workflow_dispatch:
     inputs:
+      deploy_environment:
+        description: GitHub Environment to use for deployment
+        required: true
+        type: choice
+        default: development
+        options:
+          - development
+          - production
       bot_image_tag:
         description: Bot worker image tag to deploy to Lambda
         required: true
@@ -45,16 +48,6 @@ on:
         required: true
         type: boolean
         default: true
-      stack_name:
-        description: Stack name prefix used for Lambda/role naming
-        required: true
-        type: string
-        default: signalsalad
-      ecr_repository_name:
-        description: ECR repository name for bot-worker image
-        required: true
-        type: string
-        default: signalsalad/bot-worker
 
 permissions:
   contents: read
@@ -64,6 +57,9 @@ env:
   TF_STATE_S3_BUCKET: mediasalad-demo
   TF_STATE_AWS_REGION: us-east-1
   TF_STATE_DYNAMODB_TABLE: mediasalad
+  TF_STATE_KEY: signalsalad/aws/${{ inputs.deploy_environment }}/terraform.tfstate
+  TF_VAR_stack_name: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
+  TF_VAR_ecr_namespace: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
@@ -72,13 +68,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  resolve_ecr:
-    name: Resolve Bot Worker ECR Repository
-    if: ${{ inputs.build_and_push_image || inputs.deploy_lambda }}
+  build_image:
+    name: Build and Push Bot Worker Image
+    if: ${{ inputs.build_and_push_image }}
     runs-on: ubuntu-latest
-    outputs:
-      repository_uri: ${{ steps.resolve.outputs.repository_uri }}
-      ecr_namespace: ${{ steps.resolve.outputs.ecr_namespace }}
+    environment: ${{ inputs.deploy_environment }}
     defaults:
       run:
         shell: bash
@@ -91,23 +85,9 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      - name: Resolve namespace and repository URI from Terraform state
-        id: resolve
+      - name: Resolve bot-worker ECR repository from Terraform state
         working-directory: infrastructure/aws
         run: |
-          test -n "${AWS_ECR_REPOSITORY_NAME}" || { echo "Missing input: ecr_repository_name"; exit 1; }
-
-          if [[ "${AWS_ECR_REPOSITORY_NAME##*/}" != "bot-worker" ]]; then
-            echo "ecr_repository_name must end with /bot-worker"
-            exit 1
-          fi
-
-          ECR_NAMESPACE="${AWS_ECR_REPOSITORY_NAME%/*}"
-          if [[ -z "${ECR_NAMESPACE}" || "${ECR_NAMESPACE}" == "${AWS_ECR_REPOSITORY_NAME}" ]]; then
-            echo "ecr_repository_name must include a namespace prefix (example: signalsalad/bot-worker)"
-            exit 1
-          fi
-
           cat > backend.ci.tf <<'HCL'
           terraform {
             backend "s3" {}
@@ -116,7 +96,7 @@ jobs:
 
           terraform init -input=false -reconfigure \
             -backend-config="bucket=${TF_STATE_S3_BUCKET}" \
-            -backend-config="key=signalsalad/aws/terraform.tfstate" \
+            -backend-config="key=${TF_STATE_KEY}" \
             -backend-config="region=${TF_STATE_AWS_REGION}" \
             -backend-config="encrypt=true" \
             -backend-config="dynamodb_table=${TF_STATE_DYNAMODB_TABLE}" \
@@ -125,29 +105,7 @@ jobs:
 
           REPO_URI="$(terraform output -json ecr_repositories | jq -r '."bot-worker"')"
           test -n "${REPO_URI}" || { echo "Terraform output ecr_repositories.bot-worker is empty"; exit 1; }
-
-          echo "repository_uri=${REPO_URI}" >> "${GITHUB_OUTPUT}"
-          echo "ecr_namespace=${ECR_NAMESPACE}" >> "${GITHUB_OUTPUT}"
-    env:
-      AWS_ECR_REPOSITORY_NAME: ${{ inputs.ecr_repository_name }}
-
-  build_image:
-    name: Build and Push Bot Worker Image
-    needs: resolve_ecr
-    if: >-
-      ${{
-        inputs.build_and_push_image &&
-        needs.resolve_ecr.result == 'success'
-      }}
-    runs-on: ubuntu-latest
-    env:
-      AWS_ECR_BOT_WORKER_REPOSITORY: ${{ needs.resolve_ecr.outputs.repository_uri }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+          echo "AWS_ECR_BOT_WORKER_REPOSITORY=${REPO_URI}" >> "${GITHUB_ENV}"
 
       - name: Login to ECR
         run: |
@@ -179,18 +137,17 @@ jobs:
   deploy_lambda:
     name: Deploy Bot Worker Lambda
     needs:
-      - resolve_ecr
       - build_image
     if: >-
       ${{
         inputs.deploy_lambda &&
-        needs.resolve_ecr.result == 'success' &&
         (needs.build_image.result == 'success' || needs.build_image.result == 'skipped')
       }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.deploy_environment }}
     env:
-      STACK_NAME: ${{ inputs.stack_name }}
-      ECR_NAMESPACE: ${{ needs.resolve_ecr.outputs.ecr_namespace }}
+      STACK_NAME: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
+      ECR_NAMESPACE: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
       BOT_IMAGE_TAG: ${{ inputs.bot_image_tag }}
     defaults:
       run:
@@ -215,7 +172,7 @@ jobs:
 
           terraform init -input=false -reconfigure \
             -backend-config="bucket=${TF_STATE_S3_BUCKET}" \
-            -backend-config="key=signalsalad/aws/terraform.tfstate" \
+            -backend-config="key=${TF_STATE_KEY}" \
             -backend-config="region=${TF_STATE_AWS_REGION}" \
             -backend-config="encrypt=true" \
             -backend-config="dynamodb_table=${TF_STATE_DYNAMODB_TABLE}" \

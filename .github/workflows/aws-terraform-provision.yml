@@ -2,6 +2,12 @@ name: AWS Terraform Provision
 
 on:
   workflow_call:
+    inputs:
+      deploy_environment:
+        description: GitHub Environment to use for deployment
+        required: false
+        type: string
+        default: development
     outputs:
       webapp_assets_bucket:
         description: "S3 bucket name for webapp assets"
@@ -27,6 +33,7 @@ jobs:
   deploy-aws:
     name: Deploy AWS Terraform
     runs-on: ubuntu-latest
+    environment: ${{ inputs.deploy_environment }}
     outputs:
       webapp_assets_bucket: ${{ steps.tf_outputs.outputs.webapp_assets_bucket }}
       webapp_cdn_distribution_id: ${{ steps.tf_outputs.outputs.webapp_cdn_distribution_id }}
@@ -36,9 +43,12 @@ jobs:
       TF_IN_AUTOMATION: "true"
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_STATE_KEY: signalsalad/aws/${{ inputs.deploy_environment }}/terraform.tfstate
+      TF_VAR_stack_name: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
+      TF_VAR_ecr_namespace: ${{ inputs.deploy_environment == 'production' && 'signalsalad-prod' || 'signalsalad-dev' }}
       TF_VAR_paypal_client_id: ${{ secrets.PAYPAL_CLIENT_ID }}
       TF_VAR_paypal_client_secret: ${{ secrets.PAYPAL_CLIENT_SECRET }}
-      TF_VAR_paypal_environment: sandbox
+      TF_VAR_paypal_environment: live
       TF_STATE_S3_BUCKET: mediasalad-demo
       TF_STATE_AWS_REGION: us-east-1
       TF_STATE_DYNAMODB_TABLE: mediasalad
@@ -60,6 +70,7 @@ jobs:
           test -n "${TF_STATE_S3_BUCKET}" || { echo "Missing env: TF_STATE_S3_BUCKET"; exit 1; }
           test -n "${TF_STATE_AWS_REGION}" || { echo "Missing env: TF_STATE_AWS_REGION"; exit 1; }
           test -n "${TF_STATE_DYNAMODB_TABLE}" || { echo "Missing env: TF_STATE_DYNAMODB_TABLE"; exit 1; }
+          test -n "${TF_STATE_KEY}" || { echo "Missing env: TF_STATE_KEY"; exit 1; }
 
       - name: Terraform Init (S3 backend)
         run: |
@@ -71,7 +82,7 @@ jobs:
 
           backend_args=(
             "-backend-config=bucket=${TF_STATE_S3_BUCKET}"
-            "-backend-config=key=signalsalad/aws/terraform.tfstate"
+            "-backend-config=key=${TF_STATE_KEY}"
             "-backend-config=region=${TF_STATE_AWS_REGION}"
             "-backend-config=encrypt=true"
             "-backend-config=dynamodb_table=${TF_STATE_DYNAMODB_TABLE}"
