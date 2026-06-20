@@ -2,7 +2,7 @@
   "dependencies": {
     "@types/node": "^25.3.5",
     "length-prefixed-stream": "^2.0.0",
-    "mediasoup": "^3.19.17",
+    "mediasoup": "^3.19.18",
     "minimist": "^1.2.8",
     "p-queue": "^9.1.0",
     "tsx": "^4.21.0"
