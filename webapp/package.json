@@ -4,7 +4,7 @@
     "feather-icons": "^4.29.2",
     "html-webpack-plugin": "^5.6.6",
     "mediasoup-client": "^3.18.7",
-    "mini-css-extract-plugin": "^2.10.0",
+    "mini-css-extract-plugin": "^2.10.1",
     "minimist": "^1.2.8",
     "ts-loader": "^9.5.4",
     "webpack": "^5.105.4"
